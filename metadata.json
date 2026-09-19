@@ -1,0 +1,7 @@
+{
+  "name": "Compensador de Horas",
+  "description": "Calculadora de compensação de jornada de trabalho com ajuste automático da saída final por atrasos e alarme 2 minutos antes de cada marcação.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
