@@ -40,6 +40,7 @@ export interface CompensationResult {
   progressPercent: number;
   statusText: string;
   statusCode: 'pending_entry' | 'morning_work' | 'in_lunch' | 'afternoon_work' | 'completed' | 'overtime';
+  dailyBalanceMinutes: number; // time bank balance for the day respecting the 5 min exit tolerance rule
 
   // Alarms
   alarms: {

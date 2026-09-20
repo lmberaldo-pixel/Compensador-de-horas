@@ -271,6 +271,25 @@ export function calculateCompensation(
     enabled: isMilestoneEnabled('finalExit'),
   });
 
+  // 9. Time bank balance calculation with 5-minute exit tolerance rule:
+  // Overtime is only credited to the time bank if it exceeds 5 minutes beyond the calculated exit time.
+  let dailyBalanceMinutes = 0;
+  if (!isNaN(actualEndMins) && !isNaN(calculatedEndMins)) {
+    const overtimeVsTarget = actualEndMins - calculatedEndMins;
+    if (overtimeVsTarget > 0) {
+      dailyBalanceMinutes = overtimeVsTarget > 5 ? overtimeVsTarget : 0;
+    } else {
+      dailyBalanceMinutes = overtimeVsTarget;
+    }
+  } else {
+    const rawBalance = totalMinutesWorked - requiredWorkMinutes;
+    if (rawBalance > 0) {
+      dailyBalanceMinutes = rawBalance > 5 ? rawBalance : 0;
+    } else {
+      dailyBalanceMinutes = rawBalance;
+    }
+  }
+
   return {
     entryDelayMinutes,
     lunchDurationMinutes,
@@ -286,6 +305,7 @@ export function calculateCompensation(
     progressPercent,
     statusText,
     statusCode,
+    dailyBalanceMinutes,
     alarms
   };
 }

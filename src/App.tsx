@@ -285,8 +285,7 @@ export default function App() {
 
   const handleSaveCurrentDay = () => {
     const todayStr = new Date().toISOString().slice(0, 10);
-    const requiredMinutes = config.workHours * 60 + config.workMinutes;
-    const balance = result.totalMinutesWorked - requiredMinutes;
+    const balance = result.dailyBalanceMinutes;
 
     const newRecord: HistoryRecord = {
       id: `record_${Date.now()}`,
@@ -304,6 +303,8 @@ export default function App() {
           ? `Saldo positivo (+${balance} min)`
           : balance < 0
           ? `Saldo devedor (${balance} min)`
+          : marks.actualEndTime && result.totalMinutesWorked > (config.workHours * 60 + config.workMinutes)
+          ? `Tolerância de 5 min na saída (0 min para o banco)`
           : 'Jornada cumprida exatamente',
     };
 
