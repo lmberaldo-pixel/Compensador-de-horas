@@ -17,7 +17,6 @@ import Header from './components/Header';
 import CurrentStatusCard from './components/CurrentStatusCard';
 import TimeEntryInputs from './components/TimeEntryInputs';
 import AlarmBanner, { ActiveAlarmState } from './components/AlarmBanner';
-import CompensationExplanationCard from './components/CompensationExplanationCard';
 import SettingsModal from './components/SettingsModal';
 import HistoryModal from './components/HistoryModal';
 
@@ -422,9 +421,6 @@ export default function App() {
           onClearMarks={handleClearMarks}
           onSaveCurrentDay={handleSaveCurrentDay}
         />
-
-        {/* Methodological Explanation */}
-        <CompensationExplanationCard config={config} result={result} />
       </main>
 
       {/* Toast Notification */}
