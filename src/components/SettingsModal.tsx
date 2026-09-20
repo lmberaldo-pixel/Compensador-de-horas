@@ -26,16 +26,23 @@ export default function SettingsModal({
 
   if (!isOpen) return null;
 
-  const handlePresetSelect = (hours: number, minutes: number) => {
-    const startM = timeToMinutes(formData.standardStartTime || '08:00');
-    const lunchM = formData.standardLunchMinutes || 60;
-    const workM = hours * 60 + minutes;
-    const newEnd = !isNaN(startM) ? minutesToTime(startM + lunchM + workM) : '17:00';
+  const updateWorkConfigTimes = (newStart: string, newEnd: string, newLunch: number) => {
+    const startM = timeToMinutes(newStart);
+    const endM = timeToMinutes(newEnd);
+    let h = formData.workHours;
+    let m = formData.workMinutes;
+    if (!isNaN(startM) && !isNaN(endM) && endM > startM + newLunch) {
+      const totalWorkM = endM - startM - newLunch;
+      h = Math.floor(totalWorkM / 60);
+      m = totalWorkM % 60;
+    }
     setFormData((prev) => ({
       ...prev,
-      workHours: hours,
-      workMinutes: minutes,
+      standardStartTime: newStart,
       standardEndTime: newEnd,
+      standardLunchMinutes: newLunch,
+      workHours: h,
+      workMinutes: m,
     }));
   };
 
@@ -79,92 +86,17 @@ export default function SettingsModal({
 
         {/* Modal Body */}
         <form onSubmit={handleSave} className="p-6 overflow-y-auto space-y-6">
-          {/* Jornada de Trabalho */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-2">
-              Jornada Contratual Diária
-            </label>
-
-            {/* Presets */}
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              <button
-                type="button"
-                onClick={() => handlePresetSelect(8, 0)}
-                className={`px-3 py-2 text-xs font-semibold rounded-lg border transition-colors ${
-                  formData.workHours === 8 && formData.workMinutes === 0
-                    ? 'bg-stone-900 text-white border-stone-900'
-                    : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
-                }`}
-              >
-                8h 00m (Padrão)
-              </button>
-              <button
-                type="button"
-                onClick={() => handlePresetSelect(8, 48)}
-                className={`px-3 py-2 text-xs font-semibold rounded-lg border transition-colors ${
-                  formData.workHours === 8 && formData.workMinutes === 48
-                    ? 'bg-stone-900 text-white border-stone-900'
-                    : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
-                }`}
-              >
-                8h 48m (44h sem.)
-              </button>
-              <button
-                type="button"
-                onClick={() => handlePresetSelect(6, 0)}
-                className={`px-3 py-2 text-xs font-semibold rounded-lg border transition-colors ${
-                  formData.workHours === 6 && formData.workMinutes === 0
-                    ? 'bg-stone-900 text-white border-stone-900'
-                    : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
-                }`}
-              >
-                6h 00m (Estágio)
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <span className="text-[11px] text-stone-500 font-medium block mb-1">Horas</span>
-                <input
-                  type="number"
-                  min="1"
-                  max="14"
-                  value={formData.workHours}
-                  onChange={(e) => {
-                    const h = parseInt(e.target.value, 10) || 8;
-                    const startM = timeToMinutes(formData.standardStartTime || '08:00');
-                    const lunchM = formData.standardLunchMinutes || 60;
-                    const newEnd = !isNaN(startM) ? minutesToTime(startM + lunchM + h * 60 + formData.workMinutes) : formData.standardEndTime;
-                    setFormData({ ...formData, workHours: h, standardEndTime: newEnd });
-                  }}
-                  className="w-full font-mono text-base font-bold bg-white text-stone-900 px-3 py-2 rounded-lg border border-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-900"
-                />
-              </div>
-              <div>
-                <span className="text-[11px] text-stone-500 font-medium block mb-1">Minutos</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="59"
-                  value={formData.workMinutes}
-                  onChange={(e) => {
-                    const m = parseInt(e.target.value, 10) || 0;
-                    const startM = timeToMinutes(formData.standardStartTime || '08:00');
-                    const lunchM = formData.standardLunchMinutes || 60;
-                    const newEnd = !isNaN(startM) ? minutesToTime(startM + lunchM + formData.workHours * 60 + m) : formData.standardEndTime;
-                    setFormData({ ...formData, workMinutes: m, standardEndTime: newEnd });
-                  }}
-                  className="w-full font-mono text-base font-bold bg-white text-stone-900 px-3 py-2 rounded-lg border border-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-900"
-                />
-              </div>
-            </div>
-          </div>
-
           {/* Horários Padrão da Empresa */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-2">
-              Horários Previstos de Contrato (Referência)
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-stone-600">
+                Horários Previstos de Contrato
+              </label>
+              <span className="text-xs font-mono font-bold text-stone-700 bg-stone-100 px-2 py-0.5 rounded-md">
+                Jornada: {formData.workHours}h {String(formData.workMinutes).padStart(2, '0')}m
+              </span>
+            </div>
+
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <span className="text-[11px] text-stone-500 font-medium block mb-1">
@@ -173,14 +105,13 @@ export default function SettingsModal({
                 <input
                   type="time"
                   value={formData.standardStartTime}
-                  onChange={(e) => {
-                    const newStart = e.target.value;
-                    const startM = timeToMinutes(newStart);
-                    const lunchM = formData.standardLunchMinutes || 60;
-                    const workM = formData.workHours * 60 + formData.workMinutes;
-                    const newEnd = !isNaN(startM) ? minutesToTime(startM + lunchM + workM) : formData.standardEndTime;
-                    setFormData({ ...formData, standardStartTime: newStart, standardEndTime: newEnd });
-                  }}
+                  onChange={(e) =>
+                    updateWorkConfigTimes(
+                      e.target.value,
+                      formData.standardEndTime,
+                      formData.standardLunchMinutes
+                    )
+                  }
                   className="w-full font-mono text-base font-semibold bg-white text-stone-900 px-3 py-2 rounded-lg border border-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-900"
                 />
               </div>
@@ -191,26 +122,14 @@ export default function SettingsModal({
                 </span>
                 <input
                   type="time"
-                  value={formData.standardEndTime || minutesToTime(timeToMinutes(formData.standardStartTime) + formData.standardLunchMinutes + formData.workHours * 60 + formData.workMinutes)}
-                  onChange={(e) => {
-                    const newEnd = e.target.value;
-                    const endM = timeToMinutes(newEnd);
-                    const startM = timeToMinutes(formData.standardStartTime);
-                    const lunchM = formData.standardLunchMinutes || 60;
-                    if (!isNaN(endM) && !isNaN(startM) && endM > startM + lunchM) {
-                      const totalWorkM = endM - startM - lunchM;
-                      const h = Math.floor(totalWorkM / 60);
-                      const m = totalWorkM % 60;
-                      setFormData({
-                        ...formData,
-                        standardEndTime: newEnd,
-                        workHours: h,
-                        workMinutes: m,
-                      });
-                    } else {
-                      setFormData({ ...formData, standardEndTime: newEnd });
-                    }
-                  }}
+                  value={formData.standardEndTime}
+                  onChange={(e) =>
+                    updateWorkConfigTimes(
+                      formData.standardStartTime,
+                      e.target.value,
+                      formData.standardLunchMinutes
+                    )
+                  }
                   className="w-full font-mono text-base font-semibold bg-white text-stone-900 px-3 py-2 rounded-lg border border-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-900"
                 />
               </div>
@@ -225,17 +144,13 @@ export default function SettingsModal({
                   max="180"
                   step="5"
                   value={formData.standardLunchMinutes}
-                  onChange={(e) => {
-                    const lunchM = parseInt(e.target.value, 10) || 60;
-                    const startM = timeToMinutes(formData.standardStartTime);
-                    const workM = formData.workHours * 60 + formData.workMinutes;
-                    const newEnd = !isNaN(startM) ? minutesToTime(startM + lunchM + workM) : formData.standardEndTime;
-                    setFormData({
-                      ...formData,
-                      standardLunchMinutes: lunchM,
-                      standardEndTime: newEnd,
-                    });
-                  }}
+                  onChange={(e) =>
+                    updateWorkConfigTimes(
+                      formData.standardStartTime,
+                      formData.standardEndTime,
+                      parseInt(e.target.value, 10) || 60
+                    )
+                  }
                   className="w-full font-mono text-base font-semibold bg-white text-stone-900 px-3 py-2 rounded-lg border border-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-900"
                 />
               </div>
