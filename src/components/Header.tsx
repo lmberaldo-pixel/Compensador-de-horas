@@ -63,9 +63,6 @@ export default function Header({
                 <h1 className="text-lg font-bold tracking-tight text-stone-900">
                   Compensador de Horas
                 </h1>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Auto-cálculo
-                </span>
               </div>
               <p className="text-xs text-stone-500 capitalize">{currentDateStr || 'Hoje'}</p>
             </div>
