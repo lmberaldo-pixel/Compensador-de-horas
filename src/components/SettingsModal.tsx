@@ -118,7 +118,7 @@ export default function SettingsModal({
 
               <div>
                 <span className="text-[11px] text-stone-500 font-medium block mb-1">
-                  Saída Padrão (Hora Final)
+                  Saída (Hora Final)
                 </span>
                 <input
                   type="time"
