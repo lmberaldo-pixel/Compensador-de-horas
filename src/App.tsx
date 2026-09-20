@@ -12,6 +12,10 @@ import {
   sendDesktopNotification,
   requestNotificationPermission,
 } from './utils/audioAlarm';
+import {
+  registerServiceWorker,
+  syncUpcomingAlarmsWithSW,
+} from './utils/backgroundAlarmManager';
 
 import Header from './components/Header';
 import CurrentStatusCard from './components/CurrentStatusCard';
@@ -132,10 +136,33 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Register Service Worker on startup and listen to SW messages
+  useEffect(() => {
+    registerServiceWorker();
+
+    if ('serviceWorker' in navigator) {
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data?.type === 'NOTIFICATION_PUNCH_CLICKED') {
+          showToast('Notificação recebida! Verifique suas marcações.');
+        }
+      };
+      navigator.serviceWorker.addEventListener('message', handleMessage);
+      return () => navigator.serviceWorker.removeEventListener('message', handleMessage);
+    }
+  }, []);
+
   // Compute compensation result
   const result: CompensationResult = useMemo(() => {
     return calculateCompensation(marks, config, currentMinutesNow);
   }, [marks, config, currentMinutesNow]);
+
+  // Sync alarms with Service Worker whenever calculated alarms or config changes
+  useEffect(() => {
+    if (config.alarmsEnabled !== false && config.notificationsEnabled) {
+      syncUpcomingAlarmsWithSW(result.alarms, config.alarmAdvanceMinutes || 2);
+    }
+  }, [result.alarms, config.alarmsEnabled, config.notificationsEnabled, config.alarmAdvanceMinutes]);
+
 
   // Determine next upcoming 2-minute alarm
   const nextAlarmInfo = useMemo(() => {
@@ -197,7 +224,7 @@ export default function App() {
           setActiveAlarm(alarmPayload);
 
           if (config.soundEnabled) {
-            startAlarmLoop(0.85);
+            startAlarmLoop(getSavedVolume());
           }
 
           if (config.notificationsEnabled) {
@@ -242,7 +269,7 @@ export default function App() {
     };
     setActiveAlarm(payload);
     if (config.soundEnabled) {
-      startAlarmLoop(0.85);
+      startAlarmLoop(getSavedVolume());
     }
   };
 
@@ -258,7 +285,7 @@ export default function App() {
     // Snooze for N minutes
     setTimeout(() => {
       if (config.soundEnabled) {
-        startAlarmLoop(0.85);
+        startAlarmLoop(getSavedVolume());
       }
       setActiveAlarm({
         id: 'snooze',
@@ -342,6 +369,16 @@ export default function App() {
     setConfig((prev) => ({ ...prev, soundEnabled: !prev.soundEnabled }));
   };
 
+  const handleChangeVolume = (v: number) => {
+    // Volume is persisted in localStorage by Header; expose for alarm usage
+    localStorage.setItem('compensador_volume', String(v));
+  };
+
+  const getSavedVolume = () => {
+    const saved = localStorage.getItem('compensador_volume');
+    return saved ? parseFloat(saved) : 0.85;
+  };
+
   const handleToggleMasterAlarms = () => {
     setConfig((prev) => {
       const next = !(prev.alarmsEnabled !== false);
@@ -380,6 +417,7 @@ export default function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenHistory={() => setIsHistoryOpen(true)}
         onToggleSound={handleToggleSound}
+        onChangeVolume={handleChangeVolume}
         onToggleAlarms={handleToggleMasterAlarms}
       />
 

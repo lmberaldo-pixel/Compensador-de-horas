@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Clock, Bell, BellOff, History, Settings, Volume2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Clock, Bell, BellOff, History, Settings, Volume2, VolumeX } from 'lucide-react';
 import { WorkConfig } from '../types';
 import { playBeepBeep } from '../utils/audioAlarm';
 import { formatHoursAndMinutes } from '../utils/timeCalculations';
@@ -10,6 +10,7 @@ interface HeaderProps {
   onOpenSettings: () => void;
   onOpenHistory: () => void;
   onToggleSound: () => void;
+  onChangeVolume?: (volume: number) => void;
   onToggleAlarms?: () => void;
 }
 
@@ -19,11 +20,20 @@ export default function Header({
   onOpenSettings,
   onOpenHistory,
   onToggleSound,
+  onChangeVolume,
   onToggleAlarms,
 }: HeaderProps) {
   const [currentTimeStr, setCurrentTimeStr] = useState<string>('');
   const [currentDateStr, setCurrentDateStr] = useState<string>('');
   const [testedSound, setTestedSound] = useState(false);
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const volumeRef = useRef<HTMLDivElement>(null);
+
+  // Volume stored locally (0.0–1.0), default 0.85
+  const [volume, setVolume] = useState<number>(() => {
+    const saved = localStorage.getItem('compensador_volume');
+    return saved ? parseFloat(saved) : 0.85;
+  });
 
   useEffect(() => {
     const updateTime = () => {
@@ -41,13 +51,34 @@ export default function Header({
     return () => clearInterval(interval);
   }, []);
 
+  // Close slider on outside click
+  useEffect(() => {
+    if (!showVolumeSlider) return;
+    const handler = (e: MouseEvent) => {
+      if (volumeRef.current && !volumeRef.current.contains(e.target as Node)) {
+        setShowVolumeSlider(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showVolumeSlider]);
+
   const handleTestSound = () => {
-    playBeepBeep(0.85, true);
+    playBeepBeep(volume, true);
     setTestedSound(true);
     setTimeout(() => setTestedSound(false), 1800);
   };
 
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = parseFloat(e.target.value);
+    setVolume(v);
+    localStorage.setItem('compensador_volume', String(v));
+    onChangeVolume?.(v);
+  };
+
   const isAlarmSystemActive = config.alarmsEnabled !== false;
+
+  const volumePercent = Math.round(volume * 100);
 
   return (
     <header className="bg-white border-b border-stone-200 sticky top-0 z-30 shadow-xs">
@@ -101,6 +132,73 @@ export default function Header({
             <span>{testedSound ? 'Bip Bip!' : 'Testar Bip Bip'}</span>
           </button>
 
+          {/* Volume Control Button + Slider Popup */}
+          <div ref={volumeRef} className="relative">
+            <button
+              id="toggle-sound-btn"
+              type="button"
+              onClick={() => {
+                if (config.soundEnabled) {
+                  setShowVolumeSlider((v) => !v);
+                } else {
+                  onToggleSound();
+                }
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                onToggleSound();
+              }}
+              title={
+                config.soundEnabled
+                  ? `Som ativo — ${volumePercent}% (clique para ajustar volume, clique direito para silenciar)`
+                  : 'Som silenciado — clique para ativar'
+              }
+              className={`p-2 rounded-lg text-xs font-medium border transition-colors ${
+                config.soundEnabled
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                  : 'bg-stone-100 text-stone-400 border-stone-200 hover:bg-stone-200'
+              }`}
+            >
+              {config.soundEnabled ? (
+                <Volume2 className="w-4 h-4" />
+              ) : (
+                <VolumeX className="w-4 h-4" />
+              )}
+            </button>
+
+            {/* Volume Slider Popup */}
+            {showVolumeSlider && config.soundEnabled && (
+              <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-stone-200 rounded-xl shadow-lg p-3 w-44 animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-stone-700">Volume</span>
+                  <span className="text-xs font-mono font-bold text-stone-900">{volumePercent}%</span>
+                </div>
+                <input
+                  id="volume-slider"
+                  type="range"
+                  min="0.05"
+                  max="1"
+                  step="0.05"
+                  value={volume}
+                  onChange={handleVolumeChange}
+                  className="w-full accent-emerald-600 h-1.5 rounded-full cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-stone-400 mt-1">
+                  <span>Mínimo</span>
+                  <span>Máximo</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { onToggleSound(); setShowVolumeSlider(false); }}
+                  className="mt-2.5 w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition-colors"
+                >
+                  <VolumeX className="w-3.5 h-3.5" />
+                  Silenciar
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Alarms Master Toggle */}
           {onToggleAlarms && (
             <button
@@ -133,21 +231,6 @@ export default function Header({
               )}
             </button>
           )}
-
-          {/* Sound Toggle */}
-          <button
-            id="toggle-sound-btn"
-            type="button"
-            onClick={onToggleSound}
-            title={config.soundEnabled ? 'Silenciar som do alarme' : 'Ativar som do alarme (Bip Bip)'}
-            className={`p-2 rounded-lg text-xs font-medium border transition-colors ${
-              config.soundEnabled
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                : 'bg-stone-100 text-stone-400 border-stone-200 hover:bg-stone-200'
-            }`}
-          >
-            <Volume2 className="w-4 h-4" />
-          </button>
 
           {/* History & Bank of Hours */}
           <button

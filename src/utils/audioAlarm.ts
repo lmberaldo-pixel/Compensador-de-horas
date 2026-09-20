@@ -152,11 +152,43 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
 }
 
 /**
- * Sends a native browser desktop notification if granted
+ * Sends a native system/desktop/mobile notification if granted.
+ * Prefers ServiceWorkerRegistration.showNotification for robust background & mobile support.
  */
-export function sendDesktopNotification(title: string, body: string): void {
+export async function sendDesktopNotification(title: string, body: string): Promise<void> {
   if (!('Notification' in window)) return;
   if (Notification.permission === 'granted') {
+    // Vibrate device if supported
+    if ('vibrate' in navigator) {
+      try {
+        navigator.vibrate([500, 250, 500, 250, 500]);
+      } catch (e) {
+        // Ignore vibration errors
+      }
+    }
+
+    // Try sending via Service Worker registration first (works best on mobile background/PWA)
+    if ('serviceWorker' in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        if (reg && reg.showNotification) {
+          await reg.showNotification(title, {
+            body,
+            icon: '/icon-192.png',
+            badge: '/favicon.png',
+            tag: 'work-compensation-alarm',
+            renotify: true,
+            requireInteraction: true,
+            vibrate: [500, 250, 500, 250, 500],
+          } as NotificationOptions & { renotify?: boolean; vibrate?: number[] });
+          return;
+        }
+      } catch (err) {
+        console.warn('Service Worker notification failed, falling back to window Notification:', err);
+      }
+    }
+
+    // Fallback standard Notification
     try {
       new Notification(title, {
         body,
@@ -168,3 +200,4 @@ export function sendDesktopNotification(title: string, body: string): void {
     }
   }
 }
+

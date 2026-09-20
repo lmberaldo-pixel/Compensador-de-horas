@@ -1,8 +1,12 @@
 import { useState } from 'react';
-import { Bell, BellOff, Check, Clock, Play, Save, Volume2, X } from 'lucide-react';
+import { Bell, BellOff, Check, Clock, Play, Save, Smartphone, Volume2, X, Zap } from 'lucide-react';
 import { WorkConfig } from '../types';
 import { playBeepBeep, requestNotificationPermission } from '../utils/audioAlarm';
 import { timeToMinutes, minutesToTime } from '../utils/timeCalculations';
+import {
+  getBackgroundAlarmCapabilities,
+  triggerTestBackgroundNotification,
+} from '../utils/backgroundAlarmManager';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -23,6 +27,9 @@ export default function SettingsModal({
       ? Notification.permission
       : 'denied'
   );
+  const [testNotificationState, setTestNotificationState] = useState<'idle' | 'waiting' | 'done'>('idle');
+
+  const bgCapabilities = getBackgroundAlarmCapabilities();
 
   if (!isOpen) return null;
 
@@ -319,10 +326,10 @@ export default function SettingsModal({
               <div className="flex items-center justify-between bg-stone-50 p-3 rounded-xl border border-stone-200/80">
                 <div>
                   <div className="text-xs font-bold text-stone-900">
-                    Notificações de Área de Trabalho
+                    Notificações do Sistema & Navegador
                   </div>
                   <div className="text-[11px] text-stone-500">
-                    Alerta na tela mesmo com a aba em segundo plano
+                    Alerta na tela e vibração no celular
                   </div>
                 </div>
 
@@ -336,12 +343,83 @@ export default function SettingsModal({
                     onClick={handleRequestNotification}
                     className="text-xs font-semibold px-2.5 py-1 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors"
                   >
-                    Permitir
+                    Permitir Notificações
                   </button>
                 )}
               </div>
+
+              {/* Seção de Alarmes com App Fechado no Celular */}
+              <div className="bg-gradient-to-br from-stone-900 to-stone-800 text-white p-4 rounded-xl shadow-md space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                      <Smartphone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                        Funcionamento com App Fechado
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono px-1.5 py-0.2 rounded border border-emerald-500/30">
+                          PWA + SW
+                        </span>
+                      </h4>
+                      <p className="text-[11px] text-stone-300">
+                        O Service Worker está configurado para disparar notificações com o celular bloqueado.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Botão de Teste Interativo de 5 segundos */}
+                <div className="bg-stone-800/80 p-3 rounded-lg border border-stone-700/60 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-medium text-stone-300">
+                    <span>Teste prático de 5 segundos:</span>
+                    {testNotificationState === 'waiting' && (
+                      <span className="text-amber-400 font-bold text-[11px] animate-pulse">
+                        ⏳ Feche ou minimize o app agora...
+                      </span>
+                    )}
+                    {testNotificationState === 'done' && (
+                      <span className="text-emerald-400 font-bold text-[11px]">
+                        ✓ Notificação programada!
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setTestNotificationState('waiting');
+                      const ok = await triggerTestBackgroundNotification(5);
+                      if (ok) {
+                        setTimeout(() => setTestNotificationState('done'), 6000);
+                      } else {
+                        setTestNotificationState('idle');
+                        alert('Por favor, permita as notificações no navegador primeiro.');
+                      }
+                    }}
+                    className="w-full py-2 px-3 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs rounded-lg transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-stone-950 fill-stone-950" />
+                    Testar Notificação em 5s (Feche o App para Testar)
+                  </button>
+                </div>
+
+                {/* Dicas para Celular (Android / iOS) */}
+                <div className="text-[11px] text-stone-300 space-y-1.5 border-t border-stone-700/50 pt-2.5">
+                  <div className="font-semibold text-amber-400">💡 Como garantir 100% de funcionamento no celular:</div>
+                  <ul className="list-disc list-inside space-y-1 text-[10.5px] text-stone-300">
+                    <li>
+                      <strong>Android (Chrome/Edge):</strong> Toque em "Permitir Notificações". Se a bateria do celular for agressiva, desative a "Economia de Bateria" para o navegador.
+                    </li>
+                    <li>
+                      <strong>iPhone (iOS):</strong> No Safari, toque em <span className="underline">Compartilhar</span> ➔ <span className="underline">Adicionar à Tela de Início</span> (PWA) para habilitar alertas com tela desligada.
+                    </li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </div>
+
 
           {/* Actions */}
           <div className="pt-3 border-t border-stone-100 flex items-center justify-end gap-2">

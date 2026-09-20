@@ -20,6 +20,15 @@ export interface DayMarks {
   actualEndTime: string; // "17:35" (if already punched)
 }
 
+export interface CalculatedAlarm {
+  id: 'entry' | 'lunchStart' | 'lunchEnd' | 'finalExit' | string;
+  title: string;
+  scheduledTargetTime: string;
+  alarmTriggerTime: string; // 2 min before scheduledTargetTime
+  status: 'upcoming' | 'passed' | 'active';
+  enabled: boolean;
+}
+
 export interface CompensationResult {
   // Delays and differences
   entryDelayMinutes: number; // positive = delayed entry, negative = arrived early
@@ -43,14 +52,7 @@ export interface CompensationResult {
   dailyBalanceMinutes: number; // time bank balance for the day respecting the 5 min exit tolerance rule
 
   // Alarms
-  alarms: {
-    id: 'entry' | 'lunchStart' | 'lunchEnd' | 'finalExit';
-    title: string;
-    scheduledTargetTime: string;
-    alarmTriggerTime: string; // 2 min before scheduledTargetTime
-    status: 'upcoming' | 'passed' | 'active';
-    enabled: boolean;
-  }[];
+  alarms: CalculatedAlarm[];
 }
 
 export interface HistoryRecord {
