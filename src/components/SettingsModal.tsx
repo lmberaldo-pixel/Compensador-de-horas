@@ -303,7 +303,7 @@ export default function SettingsModal({
                 </div>
 
                 <div className="flex items-center gap-1.5 pt-1">
-                  {[1, 2, 3, 4, 5].map((mins) => (
+                  {[1, 2, 3, 4, 5, 10].map((mins) => (
                     <button
                       key={mins}
                       type="button"
@@ -319,6 +319,49 @@ export default function SettingsModal({
                       {mins} min
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Etapas com Alarme Ativo */}
+              <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200/80 space-y-2">
+                <div className="text-xs font-bold text-stone-900 mb-1">
+                  Etapas da Jornada com Alarme Ativado
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'entry', label: '1. Entrada no Trabalho' },
+                    { id: 'lunchStart', label: '2. Saída para Almoço' },
+                    { id: 'lunchEnd', label: '3. Retorno do Almoço' },
+                    { id: 'finalExit', label: '4. Saída Final (Compensada)' },
+                  ].map((milestone) => {
+                    const isDisabled = (formData.disabledMilestones || []).includes(milestone.id);
+                    const isMasterActive = formData.alarmsEnabled !== false;
+                    return (
+                      <label
+                        key={milestone.id}
+                        className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-colors ${
+                          !isDisabled && isMasterActive
+                            ? 'bg-white border-amber-200/90 text-stone-800 shadow-2xs'
+                            : 'bg-stone-100/60 border-stone-200 text-stone-400'
+                        }`}
+                      >
+                        <span className="font-semibold text-[11px] truncate">{milestone.label}</span>
+                        <input
+                          type="checkbox"
+                          checked={!isDisabled}
+                          onChange={() => {
+                            const currentDisabled = formData.disabledMilestones || [];
+                            const updated = isDisabled
+                              ? currentDisabled.filter((id) => id !== milestone.id)
+                              : [...currentDisabled, milestone.id];
+                            setFormData({ ...formData, disabledMilestones: updated });
+                          }}
+                          disabled={!isMasterActive}
+                          className="w-3.5 h-3.5 rounded text-stone-900 focus:ring-stone-900 accent-amber-600 cursor-pointer"
+                        />
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 

@@ -16,7 +16,6 @@ import {
 import Header from './components/Header';
 import CurrentStatusCard from './components/CurrentStatusCard';
 import TimeEntryInputs from './components/TimeEntryInputs';
-import AlarmScheduleCard from './components/AlarmScheduleCard';
 import AlarmBanner, { ActiveAlarmState } from './components/AlarmBanner';
 import CompensationExplanationCard from './components/CompensationExplanationCard';
 import SettingsModal from './components/SettingsModal';
@@ -422,17 +421,6 @@ export default function App() {
           onChangeMark={handleMarkChange}
           onClearMarks={handleClearMarks}
           onSaveCurrentDay={handleSaveCurrentDay}
-        />
-
-        {/* Alarm Schedule */}
-        <AlarmScheduleCard
-          result={result}
-          advanceMinutes={config.alarmAdvanceMinutes || 2}
-          alarmsEnabled={config.alarmsEnabled !== false}
-          onToggleMasterAlarms={handleToggleMasterAlarms}
-          onToggleMilestoneAlarm={handleToggleMilestoneAlarm}
-          onChangeAdvanceMinutes={handleChangeAdvanceMinutes}
-          onTriggerAlarmNow={handleTriggerManualAlarm}
         />
 
         {/* Methodological Explanation */}
