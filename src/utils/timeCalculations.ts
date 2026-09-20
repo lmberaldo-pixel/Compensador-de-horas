@@ -111,6 +111,11 @@ export function calculateCompensation(
   let calculatedEndMins = NaN;
   let isEstimated = false;
 
+  const stdEndMins = timeToMinutes(config.standardEndTime);
+  const effectiveStdEndMins = !isNaN(stdEndMins)
+    ? stdEndMins
+    : (!isNaN(stdStartMins) ? stdStartMins + stdLunchMins + requiredWorkMinutes : 17 * 60);
+
   if (!isNaN(startMins)) {
     if (!isNaN(lunchStartMins) && !isNaN(lunchEndMins)) {
       // User entered real return from lunch!
@@ -133,15 +138,13 @@ export function calculateCompensation(
     }
   } else {
     // If start is not yet punched, use standard contract schedule
-    calculatedEndMins = stdStartMins + stdLunchMins + requiredWorkMinutes;
+    calculatedEndMins = effectiveStdEndMins;
     isEstimated = true;
   }
 
   // 5. Total delay compensation in minutes
   // How many minutes extra beyond the standard contract end time?
-  const standardContractEndMins = !isNaN(stdStartMins)
-    ? stdStartMins + stdLunchMins + requiredWorkMinutes
-    : 17 * 60;
+  const standardContractEndMins = effectiveStdEndMins;
 
   const totalExtraCompensationMinutes = !isNaN(calculatedEndMins)
     ? calculatedEndMins - standardContractEndMins
