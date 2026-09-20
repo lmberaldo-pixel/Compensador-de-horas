@@ -87,6 +87,7 @@ async function triggerNotification(alarm) {
     body: alarm.message || `Faltam ${alarm.advanceMinutes || 2} minutos para sua marcação às ${alarm.targetTime}!`,
     icon: '/icon-192.png',
     badge: '/favicon.png',
+    sound: '/alarm.wav',
     tag: `alarm-${alarm.id || 'generic'}`,
     renotify: true,
     requireInteraction: true,
@@ -97,7 +98,6 @@ async function triggerNotification(alarm) {
       url: '/',
     },
     actions: [
-      { action: 'open_app', title: '📍 Abrir App' },
       { action: 'snooze_2', title: '⏱️ Adiar 2 min' }
     ]
   };
@@ -144,10 +144,14 @@ self.addEventListener('message', (event) => {
             body: alarm.message || `Horário de marcação próximo às ${alarm.targetTime}!`,
             icon: '/icon-192.png',
             badge: '/favicon.png',
+            sound: '/alarm.wav',
             tag: `alarm-${alarm.id}`,
             showTrigger: new TimestampTrigger(alarm.triggerTimestamp),
             vibrate: [500, 250, 500, 250, 500],
-            data: { alarmId: alarm.id, targetTime: alarm.targetTime, url: '/' }
+            data: { alarmId: alarm.id, targetTime: alarm.targetTime, url: '/' },
+            actions: [
+              { action: 'snooze_2', title: '⏱️ Adiar 2 min' }
+            ]
           }).catch(console.warn);
         }
       });

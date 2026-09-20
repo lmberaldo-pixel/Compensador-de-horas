@@ -176,11 +176,15 @@ export async function sendDesktopNotification(title: string, body: string): Prom
             body,
             icon: '/icon-192.png',
             badge: '/favicon.png',
+            sound: '/alarm.wav',
             tag: 'work-compensation-alarm',
             renotify: true,
             requireInteraction: true,
             vibrate: [500, 250, 500, 250, 500],
-          } as NotificationOptions & { renotify?: boolean; vibrate?: number[] });
+            actions: [
+              { action: 'snooze_2', title: '⏱️ Adiar 2 min' },
+            ],
+          } as NotificationOptions & { renotify?: boolean; vibrate?: number[]; sound?: string; actions?: { action: string; title: string }[] });
           return;
         }
       } catch (err) {
