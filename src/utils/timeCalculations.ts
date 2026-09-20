@@ -80,10 +80,16 @@ export function calculateCompensation(
   const lunchEndMins = timeToMinutes(marks.lunchEndTime);
   const actualEndMins = timeToMinutes(marks.actualEndTime);
 
-  // 1. Entry delay calculation
+  // 1. Effective start time and entry delay calculation
+  // Hours worked before standardStartTime are ignored (never counted towards time bank or early exit).
   let entryDelayMinutes = 0;
+  let effectiveStartMins = NaN;
+
   if (!isNaN(startMins) && !isNaN(stdStartMins)) {
-    entryDelayMinutes = startMins - stdStartMins;
+    entryDelayMinutes = Math.max(0, startMins - stdStartMins);
+    effectiveStartMins = Math.max(startMins, stdStartMins);
+  } else if (!isNaN(startMins)) {
+    effectiveStartMins = startMins;
   }
 
   // 2. Lunch calculation
@@ -94,15 +100,15 @@ export function calculateCompensation(
     lunchDelayMinutes = lunchDurationMinutes - stdLunchMins;
   }
 
-  // 3. Morning work
+  // 3. Morning work (starting from effectiveStartMins)
   let morningMinutesWorked = 0;
-  if (!isNaN(startMins)) {
+  if (!isNaN(effectiveStartMins)) {
     if (!isNaN(lunchStartMins)) {
-      morningMinutesWorked = Math.max(0, lunchStartMins - startMins);
+      morningMinutesWorked = Math.max(0, lunchStartMins - effectiveStartMins);
     } else {
       // Still in morning shift
-      if (!isNaN(currentMinutesNow) && currentMinutesNow > startMins) {
-        morningMinutesWorked = Math.max(0, currentMinutesNow - startMins);
+      if (!isNaN(currentMinutesNow) && currentMinutesNow > effectiveStartMins) {
+        morningMinutesWorked = Math.max(0, currentMinutesNow - effectiveStartMins);
       }
     }
   }
@@ -116,24 +122,24 @@ export function calculateCompensation(
     ? stdEndMins
     : (!isNaN(stdStartMins) ? stdStartMins + stdLunchMins + requiredWorkMinutes : 17 * 60);
 
-  if (!isNaN(startMins)) {
+  if (!isNaN(effectiveStartMins)) {
     if (!isNaN(lunchStartMins) && !isNaN(lunchEndMins)) {
       // User entered real return from lunch!
-      const morningShift = Math.max(0, lunchStartMins - startMins);
+      const morningShift = Math.max(0, lunchStartMins - effectiveStartMins);
       const remainingWork = Math.max(0, requiredWorkMinutes - morningShift);
       calculatedEndMins = lunchEndMins + remainingWork;
     } else if (!isNaN(lunchStartMins)) {
       // User is on lunch, but hasn't returned yet.
       // Assume standard lunch duration from lunch departure:
-      const morningShift = Math.max(0, lunchStartMins - startMins);
+      const morningShift = Math.max(0, lunchStartMins - effectiveStartMins);
       const remainingWork = Math.max(0, requiredWorkMinutes - morningShift);
       const estimatedLunchReturn = lunchStartMins + stdLunchMins;
       calculatedEndMins = estimatedLunchReturn + remainingWork;
       isEstimated = true;
     } else {
       // User hasn't started lunch yet.
-      // Expected end = start + standard lunch + total work
-      calculatedEndMins = startMins + stdLunchMins + requiredWorkMinutes;
+      // Expected end = effectiveStart + standard lunch + total work
+      calculatedEndMins = effectiveStartMins + stdLunchMins + requiredWorkMinutes;
       isEstimated = true;
     }
   } else {
@@ -143,7 +149,6 @@ export function calculateCompensation(
   }
 
   // 5. Total delay compensation in minutes
-  // How many minutes extra beyond the standard contract end time?
   const standardContractEndMins = effectiveStdEndMins;
 
   const totalExtraCompensationMinutes = !isNaN(calculatedEndMins)
@@ -160,8 +165,8 @@ export function calculateCompensation(
     }
   }
 
-  const totalMinutesWorked = !isNaN(actualEndMins) && !isNaN(startMins) && !isNaN(lunchStartMins) && !isNaN(lunchEndMins)
-    ? (lunchStartMins - startMins) + (actualEndMins - lunchEndMins)
+  const totalMinutesWorked = !isNaN(actualEndMins) && !isNaN(effectiveStartMins) && !isNaN(lunchStartMins) && !isNaN(lunchEndMins)
+    ? (lunchStartMins - effectiveStartMins) + (actualEndMins - lunchEndMins)
     : morningMinutesWorked + afternoonMinutesWorked;
 
   const remainingMinutesToWork = Math.max(0, requiredWorkMinutes - totalMinutesWorked);
