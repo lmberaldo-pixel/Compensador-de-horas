@@ -312,6 +312,15 @@ export default function App() {
 
   const handleSaveCurrentDay = () => {
     const todayStr = new Date().toISOString().slice(0, 10);
+    const alreadySaved = history.some(
+      (record) => record.date === todayStr && record.type === 'workday'
+    );
+
+    if (alreadySaved) {
+      showToast('O ponto de hoje já foi salvo no banco de horas!');
+      return;
+    }
+
     const balance = result.dailyBalanceMinutes;
 
     const newRecord: HistoryRecord = {
