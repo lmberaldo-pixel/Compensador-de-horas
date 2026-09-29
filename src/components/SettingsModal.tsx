@@ -7,6 +7,7 @@ import {
   getBackgroundAlarmCapabilities,
   triggerTestBackgroundNotification,
 } from '../utils/backgroundAlarmManager';
+import { HistoryRecord, DayMarks } from '../types';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -66,6 +67,54 @@ export default function SettingsModal({
     e.preventDefault();
     onSaveConfig(formData);
     onClose();
+  };
+
+  const handleExportBackup = () => {
+    const configStr = localStorage.getItem('compensador_config') || '{}';
+    const marksStr = localStorage.getItem('compensador_marks_today') || '{}';
+    const historyStr = localStorage.getItem('compensador_history') || '[]';
+
+    const backupData = {
+      version: 1,
+      config: JSON.parse(configStr),
+      marks: JSON.parse(marksStr),
+      history: JSON.parse(historyStr),
+    };
+
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupData));
+    const link = document.createElement('a');
+    link.href = dataStr;
+    link.download = `backup_compensador_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const result = event.target?.result as string;
+        const backupData = JSON.parse(result);
+
+        if (backupData.config && backupData.history) {
+          localStorage.setItem('compensador_config', JSON.stringify(backupData.config));
+          localStorage.setItem('compensador_marks_today', JSON.stringify(backupData.marks || {}));
+          localStorage.setItem('compensador_history', JSON.stringify(backupData.history));
+          alert('Backup restaurado com sucesso! O aplicativo será recarregado.');
+          window.location.reload();
+        } else {
+          alert('Arquivo de backup inválido.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao ler o arquivo de backup.');
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -415,6 +464,34 @@ export default function SettingsModal({
                       <strong>iPhone (iOS):</strong> No Safari, toque em <span className="underline">Compartilhar</span> ➔ <span className="underline">Adicionar à Tela de Início</span> (PWA) para habilitar alertas com tela desligada.
                     </li>
                   </ul>
+                </div>
+              </div>
+
+              {/* Backup de Dados */}
+              <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200/80 space-y-3 mt-4">
+                <div className="text-xs font-bold text-stone-900 mb-1">
+                  Backup de Dados (Segurança)
+                </div>
+                <div className="text-[11px] text-stone-500 mb-2">
+                  Salve suas configurações e banco de horas no celular para evitar perdas caso o cache do navegador seja limpo.
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleExportBackup}
+                    className="flex-1 px-3 py-2 bg-white border border-stone-300 text-stone-700 rounded-lg text-xs font-semibold hover:bg-stone-100 transition-colors"
+                  >
+                    Exportar Backup
+                  </button>
+                  <label className="flex-1 text-center cursor-pointer px-3 py-2 bg-stone-900 text-white rounded-lg text-xs font-semibold hover:bg-stone-800 transition-colors">
+                    Importar Backup
+                    <input
+                      type="file"
+                      accept=".json"
+                      className="hidden"
+                      onChange={handleImportBackup}
+                    />
+                  </label>
                 </div>
               </div>
             </div>

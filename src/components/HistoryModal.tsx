@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Calendar,
+  Camera,
   Check,
   CheckCircle2,
   Clock,
@@ -15,6 +16,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react';
+import * as htmlToImage from 'html-to-image';
 import { CompensationResult, DayMarks, HistoryRecord } from '../types';
 import { formatHoursAndMinutes, formatMinutesDiff } from '../utils/timeCalculations';
 
@@ -185,9 +187,28 @@ export default function HistoryModal({
     document.body.removeChild(link);
   };
 
+  const handleExportJPEG = async () => {
+    const modalContent = document.getElementById('history-modal-content');
+    if (!modalContent) return;
+    
+    try {
+      const dataUrl = await htmlToImage.toJpeg(modalContent, {
+        quality: 0.9,
+        backgroundColor: '#ffffff',
+      });
+      const link = document.createElement('a');
+      link.download = `relatorio_banco_${new Date().toISOString().slice(0, 10)}.jpg`;
+      link.href = dataUrl;
+      link.click();
+    } catch (e) {
+      console.error('Error generating JPEG', e);
+      alert('Erro ao gerar a imagem JPEG. Tente novamente.');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/50 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[92vh]">
+      <div id="history-modal-content" className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100">
           <div className="flex items-center gap-2.5">
@@ -302,15 +323,26 @@ export default function HistoryModal({
             </div>
 
             {history.length > 0 && (
-              <button
-                id="export-csv-btn"
-                type="button"
-                onClick={handleExportCSV}
-                title="Exportar planilha completa CSV"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-stone-200 text-stone-700 rounded-lg text-xs font-semibold hover:bg-stone-50 transition-colors"
-              >
-                <Download className="w-3.5 h-3.5 text-stone-500" /> Exportar CSV
-              </button>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <button
+                  id="export-csv-btn"
+                  type="button"
+                  onClick={handleExportCSV}
+                  title="Exportar planilha completa CSV"
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-white border border-stone-200 text-stone-700 rounded-lg text-xs font-semibold hover:bg-stone-50 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5 text-stone-500" /> <span className="hidden sm:inline">CSV</span>
+                </button>
+                <button
+                  id="export-jpeg-btn"
+                  type="button"
+                  onClick={handleExportJPEG}
+                  title="Exportar relatório do banco em imagem JPEG"
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-white border border-stone-200 text-stone-700 rounded-lg text-xs font-semibold hover:bg-stone-50 transition-colors"
+                >
+                  <Camera className="w-3.5 h-3.5 text-stone-500" /> <span className="hidden sm:inline">JPEG</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -456,24 +488,24 @@ export default function HistoryModal({
             </div>
 
             {/* Action buttons */}
-            <div className="flex items-center justify-between pt-1">
+            <div className="flex flex-col sm:flex-row items-center justify-between pt-2 gap-3">
               <div className="text-xs font-bold font-mono">
                 Lançamento:{' '}
                 <span className={manualType === 'credit' ? 'text-emerald-700' : 'text-rose-700'}>
                   {manualType === 'credit' ? '+' : '-'} {manualHours}h {String(manualMinutes).padStart(2, '0')}m ({manualType === 'credit' ? 'Crédito' : 'Débito'})
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-stone-600 hover:bg-stone-200/60"
+                  className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold text-stone-600 hover:bg-stone-200/60"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
+                  className="flex-[2] sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Salvar e Somar ao Banco

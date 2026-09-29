@@ -21,6 +21,7 @@ interface TimeEntryInputsProps {
   onChangeMark: (field: keyof DayMarks, value: string) => void;
   onClearMarks: () => void;
   onSaveCurrentDay?: () => void;
+  onSaveAndClearDay?: () => void;
 }
 
 export default function TimeEntryInputs({
@@ -30,16 +31,37 @@ export default function TimeEntryInputs({
   onChangeMark,
   onClearMarks,
   onSaveCurrentDay,
+  onSaveAndClearDay,
 }: TimeEntryInputsProps) {
   const [showConfirmClear, setShowConfirmClear] = useState(false);
+  const [pendingPunch, setPendingPunch] = useState<keyof DayMarks | null>(null);
   const advanceMins = config.alarmAdvanceMinutes || 2;
   const hasAnyMark = Boolean(
     marks.startTime || marks.lunchStartTime || marks.lunchEndTime || marks.actualEndTime
   );
 
   const handlePunchNow = (field: keyof DayMarks) => {
+    setPendingPunch(field);
+  };
+
+  const confirmPunch = () => {
+    if (!pendingPunch) return;
     const nowTime = getCurrentTime();
-    onChangeMark(field, nowTime);
+    onChangeMark(pendingPunch, nowTime);
+    setPendingPunch(null);
+
+    // Auto-save and clear if it's the 4th punch
+    if (pendingPunch === 'actualEndTime' && onSaveAndClearDay) {
+      setTimeout(() => {
+        if (window.confirm('Último ponto batido! Deseja salvar no banco automaticamente e limpar o dia?')) {
+          onSaveAndClearDay();
+        }
+      }, 500); // small delay to let the UI update first
+    }
+  };
+
+  const cancelPunch = () => {
+    setPendingPunch(null);
   };
 
   const clearField = (field: keyof DayMarks) => {
@@ -233,6 +255,15 @@ export default function TimeEntryInputs({
                 Agora
               </button>
             </div>
+            {pendingPunch === 'startTime' && (
+              <div className="flex flex-col gap-2 mb-3 bg-amber-50 p-2 rounded-lg border border-amber-200 animate-in fade-in">
+                <span className="text-xs font-bold text-amber-900 text-center">Confirmar Entrada?</span>
+                <div className="flex gap-2">
+                  <button onClick={confirmPunch} className="flex-1 bg-emerald-600 text-white text-xs py-1.5 rounded-lg font-bold">Sim</button>
+                  <button onClick={cancelPunch} className="flex-1 bg-stone-300 text-stone-800 text-xs py-1.5 rounded-lg font-bold">Não</button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="pt-2 border-t border-stone-100 space-y-1 text-xs">
@@ -326,6 +357,15 @@ export default function TimeEntryInputs({
                 Agora
               </button>
             </div>
+            {pendingPunch === 'lunchStartTime' && (
+              <div className="flex flex-col gap-2 mb-3 bg-amber-50 p-2 rounded-lg border border-amber-200 animate-in fade-in">
+                <span className="text-xs font-bold text-amber-900 text-center">Confirmar Saída?</span>
+                <div className="flex gap-2">
+                  <button onClick={confirmPunch} className="flex-1 bg-emerald-600 text-white text-xs py-1.5 rounded-lg font-bold">Sim</button>
+                  <button onClick={cancelPunch} className="flex-1 bg-stone-300 text-stone-800 text-xs py-1.5 rounded-lg font-bold">Não</button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="pt-2 border-t border-stone-100 space-y-1 text-xs">
@@ -414,6 +454,15 @@ export default function TimeEntryInputs({
                 Agora
               </button>
             </div>
+            {pendingPunch === 'lunchEndTime' && (
+              <div className="flex flex-col gap-2 mb-3 bg-amber-50 p-2 rounded-lg border border-amber-200 animate-in fade-in">
+                <span className="text-xs font-bold text-amber-900 text-center">Confirmar Retorno?</span>
+                <div className="flex gap-2">
+                  <button onClick={confirmPunch} className="flex-1 bg-emerald-600 text-white text-xs py-1.5 rounded-lg font-bold">Sim</button>
+                  <button onClick={cancelPunch} className="flex-1 bg-stone-300 text-stone-800 text-xs py-1.5 rounded-lg font-bold">Não</button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="pt-2 border-t border-stone-100 space-y-1 text-xs">
@@ -509,6 +558,15 @@ export default function TimeEntryInputs({
                 Agora
               </button>
             </div>
+            {pendingPunch === 'actualEndTime' && (
+              <div className="flex flex-col gap-2 mb-3 bg-amber-50 p-2 rounded-lg border border-amber-200 animate-in fade-in">
+                <span className="text-xs font-bold text-amber-900 text-center">Confirmar Saída Final?</span>
+                <div className="flex gap-2">
+                  <button onClick={confirmPunch} className="flex-1 bg-emerald-600 text-white text-xs py-1.5 rounded-lg font-bold">Sim</button>
+                  <button onClick={cancelPunch} className="flex-1 bg-stone-300 text-stone-800 text-xs py-1.5 rounded-lg font-bold">Não</button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="pt-2 border-t border-stone-100 space-y-1 text-xs">
@@ -534,6 +592,20 @@ export default function TimeEntryInputs({
           </div>
         </div>
       </div>
+
+      {/* Big Save Button for Mobile at the bottom */}
+      {onSaveCurrentDay && (
+        <div className="mt-6 md:hidden">
+          <button
+            type="button"
+            onClick={onSaveCurrentDay}
+            className="w-full flex items-center justify-center gap-2 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-base font-bold shadow-lg transition-transform active:scale-95"
+          >
+            <Save className="w-5 h-5" />
+            Salvar Dia no Banco
+          </button>
+        </div>
+      )}
     </div>
   );
 }

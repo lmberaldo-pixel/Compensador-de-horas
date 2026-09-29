@@ -339,6 +339,13 @@ export default function App() {
     showToast('Marcação de hoje salva no histórico com sucesso!');
   };
 
+  const handleSaveAndClearDay = () => {
+    handleSaveCurrentDay();
+    // Wait a tick to allow the state to save, or just clear right away since state updates are batched
+    // Actually handleSaveCurrentDay uses `marks` from the current render closure, so it's safe to clear immediately
+    handleClearMarks();
+  };
+
   const handleAddManualRecord = (record: Omit<HistoryRecord, 'id'>) => {
     const newRecord: HistoryRecord = {
       ...record,
@@ -459,6 +466,7 @@ export default function App() {
           onChangeMark={handleMarkChange}
           onClearMarks={handleClearMarks}
           onSaveCurrentDay={handleSaveCurrentDay}
+          onSaveAndClearDay={handleSaveAndClearDay}
         />
       </main>
 
