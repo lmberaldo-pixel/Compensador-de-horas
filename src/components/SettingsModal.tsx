@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, BellOff, Check, Clock, Play, Save, Smartphone, Volume2, X, Zap, Monitor } from 'lucide-react';
+import { Bell, BellOff, Check, Clock, Play, Save, Smartphone, Volume2, X, Zap, Monitor, AlarmClock, ExternalLink } from 'lucide-react';
 import { WorkConfig } from '../types';
 import { playBeepBeep, requestNotificationPermission } from '../utils/audioAlarm';
 import { timeToMinutes, minutesToTime } from '../utils/timeCalculations';
@@ -518,6 +518,70 @@ export default function SettingsModal({
                     />
                   </label>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Alarme Nativo - Tela Desligada */}
+          <div className="pt-2 border-t border-stone-100">
+            <div className="flex items-center gap-2 mb-3">
+              <AlarmClock className="w-4 h-4 text-rose-500" />
+              <label className="text-xs font-bold uppercase tracking-wider text-stone-600">
+                Alarme com Tela Desligada
+              </label>
+            </div>
+
+            <div className="bg-gradient-to-br from-rose-50 to-orange-50 border border-rose-200/80 rounded-xl p-4 space-y-3">
+              <p className="text-[11px] text-stone-700 leading-relaxed">
+                Navegadores web <strong>não conseguem tocar sons</strong> com a tela desligada — isso é uma restrição do sistema operacional, não um bug. Para alarmes sonoros 100% confiáveis com tela desligada, use o <strong>aplicativo de Relógio nativo</strong> do seu celular como complemento:
+              </p>
+
+              {/* Android */}
+              <div className="bg-white/80 rounded-lg p-3 border border-rose-100 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🤖</span>
+                  <span className="text-xs font-bold text-stone-800">Android (Google Clock / Samsung Clock)</span>
+                </div>
+                <ol className="text-[10.5px] text-stone-600 space-y-1 list-decimal list-inside pl-1">
+                  <li>Abra o app <strong>Relógio</strong> do celular</li>
+                  <li>Toque em <strong>Alarme</strong> → <strong>+ Adicionar</strong></li>
+                  <li>Configure os horários: entrada, almoço, retorno e saída</li>
+                  <li>Use o campo <strong>Rótulo/Etiqueta</strong> para nomear: "Bater Ponto – Entrada"</li>
+                  <li>Toque em <strong>Salvar</strong></li>
+                </ol>
+                <a
+                  href="intent://com.google.android.deskclock#Intent;scheme=android-app;end"
+                  className="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 bg-rose-600 text-white rounded-lg text-[11px] font-bold hover:bg-rose-700 transition-colors"
+                  onClick={(e) => {
+                    // Try to open native clock app
+                    window.open('intent://com.google.android.deskclock#Intent;scheme=android-app;end', '_blank');
+                  }}
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Abrir App Relógio (Android)
+                </a>
+              </div>
+
+              {/* iOS */}
+              <div className="bg-white/80 rounded-lg p-3 border border-rose-100 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🍎</span>
+                  <span className="text-xs font-bold text-stone-800">iPhone (Relógio da Apple)</span>
+                </div>
+                <ol className="text-[10.5px] text-stone-600 space-y-1 list-decimal list-inside pl-1">
+                  <li>Abra o app <strong>Relógio</strong> do iPhone</li>
+                  <li>Toque em <strong>Alarme</strong> → <strong>+</strong></li>
+                  <li>Defina o horário e ative <strong>Repetir</strong> nos dias úteis</li>
+                  <li>No campo <strong>Rótulo</strong> escreva: "Bater Ponto – Entrada"</li>
+                  <li>Escolha um toque de <strong>sino/alarme</strong> audível</li>
+                </ol>
+              </div>
+
+              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <span className="text-amber-600 text-sm mt-0.5">💡</span>
+                <p className="text-[10.5px] text-amber-900 leading-relaxed">
+                  <strong>Dica:</strong> Use o app nativo para tocar o alarme sonoro e abra o Compensador de Horas ao ouvir o alarme para bater o ponto com o botão <strong>"Agora"</strong>.
+                </p>
               </div>
             </div>
           </div>
