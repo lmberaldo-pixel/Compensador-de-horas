@@ -11,6 +11,7 @@ export interface WorkConfig {
   disabledMilestones?: string[]; // Specific milestone alarm IDs that are deactivated (e.g., 'entry', 'lunchStart')
   soundEnabled: boolean;
   notificationsEnabled: boolean;
+  keepScreenOn?: boolean;
 }
 
 export interface DayMarks {

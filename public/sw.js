@@ -1,21 +1,33 @@
 // Service Worker for Compensador de Horas
 // Handles background alarms, notifications, IndexedDB state, and offline triggers
 
-const CACHE_NAME = 'compensador-v1';
+const CACHE_NAME = 'compensador-v2';
 const DB_NAME = 'compensador_alarms_db';
 const DB_VERSION = 1;
 const STORE_NAME = 'scheduled_alarms';
 
-// Standard Lifecycle
+// Files to cache for offline use (including alarm.wav for SW to access)
+const FILES_TO_CACHE = [
+  './alarm.wav',
+  './favicon.png',
+  './icon-192.png',
+];
+
+// ─── Lifecycle ───────────────────────────────────────────────────────────────
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(FILES_TO_CACHE).catch(() => {}))
+  );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// Open or initialize IndexedDB
+// ─── IndexedDB helpers ───────────────────────────────────────────────────────
+
 function openDB() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -30,19 +42,16 @@ function openDB() {
   });
 }
 
-// Save alarms to IndexedDB
 async function saveAlarmsToDB(alarms) {
   try {
     const db = await openDB();
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
-    // Clear old scheduled items
     await new Promise((res, rej) => {
       const req = store.clear();
       req.onsuccess = res;
       req.onerror = rej;
     });
-    // Add new ones
     for (const alarm of alarms) {
       store.put(alarm);
     }
@@ -51,7 +60,6 @@ async function saveAlarmsToDB(alarms) {
   }
 }
 
-// Read alarms from IndexedDB
 async function getAlarmsFromDB() {
   try {
     const db = await openDB();
@@ -68,7 +76,6 @@ async function getAlarmsFromDB() {
   }
 }
 
-// Remove an alarm from IndexedDB once fired
 async function removeAlarmFromDB(alarmId) {
   try {
     const db = await openDB();
@@ -80,55 +87,70 @@ async function removeAlarmFromDB(alarmId) {
   }
 }
 
-// Show native notification
+// ─── Notification trigger ─────────────────────────────────────────────────────
+// NOTE: The `sound` property in NotificationOptions is defined in the Push API spec
+// and IS honored by Chrome for Android and some versions of Edge on desktop.
+// On iOS Safari and Firefox it may be silently ignored (the OS/browser handles
+// its own notification sound instead). This is the ONLY way to play audio from
+// a background/closed PWA — Web Audio API is unavailable when the page is inactive.
+
 async function triggerNotification(alarm) {
   const title = `🔔 Alarme: ${alarm.title || 'Marcação de Ponto'}`;
+
+  // Resolve the absolute URL for alarm.wav so the browser can find it
+  const alarmSoundUrl = new URL('./alarm.wav', self.location.href).href;
+
   const options = {
     body: alarm.message || `Faltam ${alarm.advanceMinutes || 2} minutos para sua marcação às ${alarm.targetTime}!`,
-    icon: '/icon-192.png',
-    badge: '/favicon.png',
-    sound: '/alarm.wav',
+    icon: './icon-192.png',
+    badge: './favicon.png',
+    // 'sound' is the standard Push API notification sound field.
+    // Chrome on Android respects this when the URL points to a cached audio file.
+    sound: alarmSoundUrl,
     tag: `alarm-${alarm.id || 'generic'}`,
     renotify: true,
     requireInteraction: true,
-    vibrate: [500, 250, 500, 250, 500],
+    vibrate: [400, 150, 400, 150, 800, 300, 800],
     data: {
       alarmId: alarm.id,
       targetTime: alarm.targetTime,
-      url: '/',
+      url: './',
     },
     actions: [
-      { action: 'snooze_2', title: '⏱️ Adiar 2 min' }
-    ]
+      { action: 'punch_now', title: '✅ Bater Ponto' },
+      { action: 'snooze_2',  title: '⏱️ Adiar 2 min' },
+    ],
   };
 
   try {
     await self.registration.showNotification(title, options);
+    console.log('[SW] Notification shown for alarm:', alarm.id);
   } catch (err) {
     console.error('[SW] Failed to show notification:', err);
   }
 }
 
-// Check due alarms
+// ─── Alarm checker ────────────────────────────────────────────────────────────
+
 async function checkDueAlarms() {
   const now = Date.now();
   const alarms = await getAlarmsFromDB();
-  
+
   for (const alarm of alarms) {
     if (alarm.triggerTimestamp && alarm.triggerTimestamp <= now + 30000) {
-      // Trigger if due or due within next 30 sec and not already fired
       await triggerNotification(alarm);
       await removeAlarmFromDB(alarm.id);
     }
   }
 }
 
-// Interval loop in SW (runs when SW is alive)
+// Poll every 15 seconds while the SW is alive
 setInterval(() => {
   checkDueAlarms();
 }, 15000);
 
-// Listen for messages from client windows
+// ─── Message handler ──────────────────────────────────────────────────────────
+
 self.addEventListener('message', (event) => {
   const { type, payload } = event.data || {};
 
@@ -136,26 +158,31 @@ self.addEventListener('message', (event) => {
     const alarms = payload || [];
     saveAlarmsToDB(alarms);
 
-    // Try TimestampTrigger if NotificationTriggers API is supported
+    // Try TimestampTrigger API if supported (Chrome Origin Trial / experimental)
     if ('showTrigger' in Notification.prototype && typeof TimestampTrigger !== 'undefined') {
       alarms.forEach((alarm) => {
         if (alarm.triggerTimestamp && alarm.triggerTimestamp > Date.now()) {
+          const alarmSoundUrl = new URL('./alarm.wav', self.location.href).href;
           self.registration.showNotification(`🔔 Alarme: ${alarm.title}`, {
             body: alarm.message || `Horário de marcação próximo às ${alarm.targetTime}!`,
-            icon: '/icon-192.png',
-            badge: '/favicon.png',
-            sound: '/alarm.wav',
+            icon: './icon-192.png',
+            badge: './favicon.png',
+            sound: alarmSoundUrl,
             tag: `alarm-${alarm.id}`,
             showTrigger: new TimestampTrigger(alarm.triggerTimestamp),
-            vibrate: [500, 250, 500, 250, 500],
-            data: { alarmId: alarm.id, targetTime: alarm.targetTime, url: '/' },
+            vibrate: [400, 150, 400, 150, 800, 300, 800],
+            renotify: true,
+            requireInteraction: true,
+            data: { alarmId: alarm.id, targetTime: alarm.targetTime, url: './' },
             actions: [
-              { action: 'snooze_2', title: '⏱️ Adiar 2 min' }
-            ]
+              { action: 'punch_now', title: '✅ Bater Ponto' },
+              { action: 'snooze_2',  title: '⏱️ Adiar 2 min' },
+            ],
           }).catch(console.warn);
         }
       });
     }
+
   } else if (type === 'TEST_NOTIFICATION_AFTER_DELAY') {
     const delayMs = payload?.delayMs || 5000;
     setTimeout(() => {
@@ -163,16 +190,18 @@ self.addEventListener('message', (event) => {
         id: 'test-alarm',
         title: 'Teste de Alarme com App Fechado',
         targetTime: new Date(Date.now() + delayMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        message: '🎉 Notificação de teste recebida com sucesso! O alarme em segundo plano está ativo e funcionando no seu dispositivo.',
+        message: '🎉 Notificação de teste recebida! O alarme em segundo plano está funcionando.',
         advanceMinutes: 2,
       });
     }, delayMs);
+
   } else if (type === 'CLEAR_ALARMS') {
     saveAlarmsToDB([]);
   }
 });
 
-// Handle notification click
+// ─── Notification click ───────────────────────────────────────────────────────
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
@@ -180,20 +209,37 @@ self.addEventListener('notificationclick', (event) => {
   const data = event.notification.data || {};
 
   if (action === 'snooze_2') {
-    // Schedule a snooze notification 2 minutes from now
     setTimeout(() => {
       triggerNotification({
         id: 'snoozed-alarm',
         title: 'Lembrete Adiado (2 min)',
         targetTime: '--:--',
         message: 'Aviso adiado: 2 minutos se passaram. Lembre-se de bater seu ponto!',
-        advanceMinutes: 2
+        advanceMinutes: 2,
       });
     }, 2 * 60 * 1000);
     return;
   }
 
-  // Open or focus the app window
+  if (action === 'punch_now') {
+    // Open/focus the app and signal that a punch should happen
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        for (const client of clientList) {
+          if ('focus' in client) {
+            client.postMessage({ type: 'NOTIFICATION_PUNCH_NOW', data });
+            return client.focus();
+          }
+        }
+        if (self.clients.openWindow) {
+          return self.clients.openWindow('./#punch-now');
+        }
+      })
+    );
+    return;
+  }
+
+  // Default click: open/focus the app
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
@@ -203,15 +249,28 @@ self.addEventListener('notificationclick', (event) => {
         }
       }
       if (self.clients.openWindow) {
-        return self.clients.openWindow('/#alarm-active');
+        return self.clients.openWindow('./#alarm-active');
       }
     })
   );
 });
 
-// Handle background sync event if triggered by browser
+// ─── Background Sync ──────────────────────────────────────────────────────────
+
 self.addEventListener('sync', (event) => {
   if (event.tag === 'check-alarms') {
     event.waitUntil(checkDueAlarms());
+  }
+});
+
+// ─── Push event (for future server-side push) ─────────────────────────────────
+
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  try {
+    const data = event.data.json();
+    event.waitUntil(triggerNotification(data));
+  } catch {
+    event.waitUntil(triggerNotification({ id: 'push', title: 'Alarme', targetTime: '--:--' }));
   }
 });

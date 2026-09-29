@@ -37,6 +37,7 @@ const DEFAULT_CONFIG: WorkConfig = {
   disabledMilestones: [],
   soundEnabled: true,
   notificationsEnabled: true,
+  keepScreenOn: false,
 };
 
 const DEFAULT_MARKS: DayMarks = {
@@ -135,6 +136,48 @@ export default function App() {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Wake Lock implementation to keep screen on
+  const wakeLockRef = useRef<any>(null);
+  
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      if (config.keepScreenOn && 'wakeLock' in navigator) {
+        try {
+          wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+          console.log('Screen Wake Lock is active');
+        } catch (err: any) {
+          console.error(`Wake Lock error: ${err.name}, ${err.message}`);
+        }
+      } else if (!config.keepScreenOn && wakeLockRef.current) {
+        try {
+          await wakeLockRef.current.release();
+          wakeLockRef.current = null;
+          console.log('Screen Wake Lock released');
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    };
+
+    requestWakeLock();
+
+    // Re-request wake lock when document becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && config.keepScreenOn) {
+        requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().catch(console.error);
+        wakeLockRef.current = null;
+      }
+    };
+  }, [config.keepScreenOn]);
 
   // Register Service Worker on startup and listen to SW messages
   useEffect(() => {
