@@ -21,7 +21,6 @@ interface TimeEntryInputsProps {
   onChangeMark: (field: keyof DayMarks, value: string) => void;
   onClearMarks: () => void;
   onSaveCurrentDay?: () => void;
-  onSaveAndClearDay?: () => void;
 }
 
 export default function TimeEntryInputs({
@@ -31,7 +30,6 @@ export default function TimeEntryInputs({
   onChangeMark,
   onClearMarks,
   onSaveCurrentDay,
-  onSaveAndClearDay,
 }: TimeEntryInputsProps) {
   const [showConfirmClear, setShowConfirmClear] = useState(false);
   const [pendingPunch, setPendingPunch] = useState<keyof DayMarks | null>(null);
@@ -49,15 +47,6 @@ export default function TimeEntryInputs({
     const nowTime = getCurrentTime();
     onChangeMark(pendingPunch, nowTime);
     setPendingPunch(null);
-
-    // Auto-save and clear if it's the 4th punch
-    if (pendingPunch === 'actualEndTime' && onSaveAndClearDay) {
-      setTimeout(() => {
-        if (window.confirm('Último ponto batido! Deseja salvar no banco automaticamente e limpar o dia?')) {
-          onSaveAndClearDay();
-        }
-      }, 500); // small delay to let the UI update first
-    }
   };
 
   const cancelPunch = () => {
