@@ -1,13 +1,15 @@
-import { useState } from 'react';
-import { Bell, BellOff, Check, Clock, Play, Save, Smartphone, Volume2, X, Zap, Monitor, AlarmClock, ExternalLink } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Bell, BellOff, Check, Clock, Save, X, Monitor, Music, Play, Trash2 } from 'lucide-react';
 import { WorkConfig } from '../types';
-import { playBeepBeep, requestNotificationPermission } from '../utils/audioAlarm';
-import { timeToMinutes, minutesToTime } from '../utils/timeCalculations';
 import {
-  getBackgroundAlarmCapabilities,
-  triggerTestBackgroundNotification,
-} from '../utils/backgroundAlarmManager';
-import { HistoryRecord, DayMarks } from '../types';
+  saveCustomAlarmSound,
+  saveCustomAlarmSoundName,
+  getCustomAlarmSoundName,
+  hasCustomAlarmSound,
+  clearCustomAlarmSound,
+  previewCustomAlarmSound,
+  requestNotificationPermission,
+} from '../utils/audioAlarm';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -28,9 +30,70 @@ export default function SettingsModal({
       ? Notification.permission
       : 'denied'
   );
-  const [testNotificationState, setTestNotificationState] = useState<'idle' | 'waiting' | 'done'>('idle');
 
-  const bgCapabilities = getBackgroundAlarmCapabilities();
+  // Custom ringtone state
+  const [customSoundName, setCustomSoundName] = useState<string | null>(
+    () => getCustomAlarmSoundName()
+  );
+  const [hasCustom, setHasCustom] = useState(() => hasCustomAlarmSound());
+  const [soundUploadError, setSoundUploadError] = useState<string | null>(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const stopPreviewRef = useRef<(() => void) | null>(null);
+  const soundInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleSoundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSoundUploadError(null);
+
+    // 4 MB soft limit to stay within localStorage budget
+    if (file.size > 4 * 1024 * 1024) {
+      setSoundUploadError('Arquivo muito grande. Use um toque com menos de 4 MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      try {
+        saveCustomAlarmSound(dataUrl);
+        saveCustomAlarmSoundName(file.name);
+        setCustomSoundName(file.name);
+        setHasCustom(true);
+        setFormData((prev) => ({ ...prev, useCustomSound: true }));
+      } catch {
+        setSoundUploadError('Não foi possível salvar o arquivo. Tente um arquivo menor.');
+      }
+    };
+    reader.readAsDataURL(file);
+    // Reset input so the same file can be re-selected
+    e.target.value = '';
+  };
+
+  const handleRemoveCustomSound = () => {
+    clearCustomAlarmSound();
+    setHasCustom(false);
+    setCustomSoundName(null);
+    setFormData((prev) => ({ ...prev, useCustomSound: false }));
+  };
+
+  const handlePreviewSound = () => {
+    if (isPreviewing && stopPreviewRef.current) {
+      stopPreviewRef.current();
+      stopPreviewRef.current = null;
+      setIsPreviewing(false);
+      return;
+    }
+    const stop = previewCustomAlarmSound();
+    stopPreviewRef.current = stop;
+    setIsPreviewing(true);
+    // Auto-stop after 10 seconds
+    setTimeout(() => {
+      stop();
+      stopPreviewRef.current = null;
+      setIsPreviewing(false);
+    }, 10000);
+  };
 
   if (!isOpen) return null;
 
@@ -336,41 +399,6 @@ export default function SettingsModal({
                 </div>
               </div>
 
-              {/* Som do Alarme */}
-              <div className="flex items-center justify-between bg-stone-50 p-3 rounded-xl border border-stone-200/80 gap-3">
-                <div className="flex-1">
-                  <div className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
-                    <Volume2 className="w-3.5 h-3.5 text-amber-600" />
-                    Som do Alarme: Bip Bip Digital
-                  </div>
-                  <div className="text-[11px] text-stone-500">
-                    Alarme clássico "bip bip" eletrônico, nítido e persistente
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => playBeepBeep(0.85, true)}
-                    title="Ouvir som Bip Bip"
-                    className="px-2.5 py-1 text-xs font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 rounded-lg transition-colors flex items-center gap-1"
-                  >
-                    <Play className="w-3 h-3 text-amber-800" />
-                    Ouvir Bip Bip
-                  </button>
-
-                  <input
-                    id="sound-enabled-checkbox"
-                    type="checkbox"
-                    checked={formData.soundEnabled}
-                    onChange={(e) =>
-                      setFormData({ ...formData, soundEnabled: e.target.checked })
-                    }
-                    className="w-4 h-4 rounded text-stone-900 focus:ring-stone-900 accent-amber-600 cursor-pointer"
-                  />
-                </div>
-              </div>
-
               {/* Notificações do Navegador */}
               <div className="flex items-center justify-between bg-stone-50 p-3 rounded-xl border border-stone-200/80">
                 <div>
@@ -397,6 +425,79 @@ export default function SettingsModal({
                 )}
               </div>
 
+              {/* Toque Customizado do Celular */}
+              <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200/80 space-y-2.5">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <Music className="w-3.5 h-3.5 text-violet-600" />
+                  <div className="text-xs font-bold text-stone-900">Som do Alarme</div>
+                </div>
+                <div className="text-[11px] text-stone-500">
+                  Use o <strong>toque do seu celular</strong> ou qualquer arquivo de áudio (MP3, M4A, OGG…) no lugar do beep padrão.
+                </div>
+
+                {hasCustom && customSoundName ? (
+                  <div className="flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-2">
+                    <Music className="w-3.5 h-3.5 text-violet-600 shrink-0" />
+                    <span className="text-[11px] font-semibold text-violet-900 flex-1 truncate" title={customSoundName}>
+                      {customSoundName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handlePreviewSound}
+                      title={isPreviewing ? 'Parar preview' : 'Ouvir preview'}
+                      className={`p-1 rounded-md transition-colors ${
+                        isPreviewing
+                          ? 'bg-violet-600 text-white'
+                          : 'text-violet-700 hover:bg-violet-100'
+                      }`}
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveCustomSound}
+                      title="Remover toque customizado"
+                      className="p-1 rounded-md text-rose-600 hover:bg-rose-50 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-center gap-2 cursor-pointer px-3 py-2 bg-white border border-dashed border-stone-300 text-stone-600 rounded-lg text-xs font-semibold hover:border-violet-400 hover:text-violet-700 hover:bg-violet-50 transition-colors">
+                    <Music className="w-3.5 h-3.5" />
+                    Escolher arquivo de áudio
+                    <input
+                      ref={soundInputRef}
+                      type="file"
+                      accept="audio/*"
+                      className="hidden"
+                      onChange={handleSoundUpload}
+                    />
+                  </label>
+                )}
+
+                {hasCustom && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="use-custom-sound-checkbox"
+                      type="checkbox"
+                      checked={formData.useCustomSound || false}
+                      onChange={(e) =>
+                        setFormData({ ...formData, useCustomSound: e.target.checked })
+                      }
+                      className="w-3.5 h-3.5 rounded accent-violet-600 cursor-pointer"
+                    />
+                    <label htmlFor="use-custom-sound-checkbox" className="text-[11px] text-stone-700 font-semibold cursor-pointer">
+                      Usar este toque como alarme
+                    </label>
+                  </div>
+                )}
+
+                {soundUploadError && (
+                  <p className="text-[11px] text-rose-600 font-medium">{soundUploadError}</p>
+                )}
+              </div>
+
               {/* Manter Tela Ligada */}
               <div className="flex items-center justify-between bg-stone-50 p-3 rounded-xl border border-stone-200/80 gap-3">
                 <div className="flex-1">
@@ -419,76 +520,6 @@ export default function SettingsModal({
                     }
                     className="w-4 h-4 rounded text-stone-900 focus:ring-stone-900 accent-blue-600 cursor-pointer"
                   />
-                </div>
-              </div>
-
-              {/* Seção de Alarmes com App Fechado no Celular */}
-              <div className="bg-gradient-to-br from-stone-900 to-stone-800 text-white p-4 rounded-xl shadow-md space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                      <Smartphone className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
-                        Funcionamento com App Fechado
-                        <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono px-1.5 py-0.2 rounded border border-emerald-500/30">
-                          PWA + SW
-                        </span>
-                      </h4>
-                      <p className="text-[11px] text-stone-300">
-                        O Service Worker está configurado para disparar notificações com o celular bloqueado.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Botão de Teste Interativo de 5 segundos */}
-                <div className="bg-stone-800/80 p-3 rounded-lg border border-stone-700/60 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-medium text-stone-300">
-                    <span>Teste prático de 5 segundos:</span>
-                    {testNotificationState === 'waiting' && (
-                      <span className="text-amber-400 font-bold text-[11px] animate-pulse">
-                        ⏳ Feche ou minimize o app agora...
-                      </span>
-                    )}
-                    {testNotificationState === 'done' && (
-                      <span className="text-emerald-400 font-bold text-[11px]">
-                        ✓ Notificação programada!
-                      </span>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setTestNotificationState('waiting');
-                      const ok = await triggerTestBackgroundNotification(5);
-                      if (ok) {
-                        setTimeout(() => setTestNotificationState('done'), 6000);
-                      } else {
-                        setTestNotificationState('idle');
-                        alert('Por favor, permita as notificações no navegador primeiro.');
-                      }
-                    }}
-                    className="w-full py-2 px-3 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs rounded-lg transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-                  >
-                    <Zap className="w-3.5 h-3.5 text-stone-950 fill-stone-950" />
-                    Testar Notificação em 5s (Feche o App para Testar)
-                  </button>
-                </div>
-
-                {/* Dicas para Celular (Android / iOS) */}
-                <div className="text-[11px] text-stone-300 space-y-1.5 border-t border-stone-700/50 pt-2.5">
-                  <div className="font-semibold text-amber-400">💡 Como garantir 100% de funcionamento no celular:</div>
-                  <ul className="list-disc list-inside space-y-1 text-[10.5px] text-stone-300">
-                    <li>
-                      <strong>Android (Chrome/Edge):</strong> Toque em "Permitir Notificações". Se a bateria do celular for agressiva, desative a "Economia de Bateria" para o navegador.
-                    </li>
-                    <li>
-                      <strong>iPhone (iOS):</strong> No Safari, toque em <span className="underline">Compartilhar</span> ➔ <span className="underline">Adicionar à Tela de Início</span> (PWA) para habilitar alertas com tela desligada.
-                    </li>
-                  </ul>
                 </div>
               </div>
 
@@ -522,69 +553,6 @@ export default function SettingsModal({
             </div>
           </div>
 
-          {/* Alarme Nativo - Tela Desligada */}
-          <div className="pt-2 border-t border-stone-100">
-            <div className="flex items-center gap-2 mb-3">
-              <AlarmClock className="w-4 h-4 text-rose-500" />
-              <label className="text-xs font-bold uppercase tracking-wider text-stone-600">
-                Alarme com Tela Desligada
-              </label>
-            </div>
-
-            <div className="bg-gradient-to-br from-rose-50 to-orange-50 border border-rose-200/80 rounded-xl p-4 space-y-3">
-              <p className="text-[11px] text-stone-700 leading-relaxed">
-                Navegadores web <strong>não conseguem tocar sons</strong> com a tela desligada — isso é uma restrição do sistema operacional, não um bug. Para alarmes sonoros 100% confiáveis com tela desligada, use o <strong>aplicativo de Relógio nativo</strong> do seu celular como complemento:
-              </p>
-
-              {/* Android */}
-              <div className="bg-white/80 rounded-lg p-3 border border-rose-100 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-base">🤖</span>
-                  <span className="text-xs font-bold text-stone-800">Android (Google Clock / Samsung Clock)</span>
-                </div>
-                <ol className="text-[10.5px] text-stone-600 space-y-1 list-decimal list-inside pl-1">
-                  <li>Abra o app <strong>Relógio</strong> do celular</li>
-                  <li>Toque em <strong>Alarme</strong> → <strong>+ Adicionar</strong></li>
-                  <li>Configure os horários: entrada, almoço, retorno e saída</li>
-                  <li>Use o campo <strong>Rótulo/Etiqueta</strong> para nomear: "Bater Ponto – Entrada"</li>
-                  <li>Toque em <strong>Salvar</strong></li>
-                </ol>
-                <a
-                  href="intent://com.google.android.deskclock#Intent;scheme=android-app;end"
-                  className="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 bg-rose-600 text-white rounded-lg text-[11px] font-bold hover:bg-rose-700 transition-colors"
-                  onClick={(e) => {
-                    // Try to open native clock app
-                    window.open('intent://com.google.android.deskclock#Intent;scheme=android-app;end', '_blank');
-                  }}
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  Abrir App Relógio (Android)
-                </a>
-              </div>
-
-              {/* iOS */}
-              <div className="bg-white/80 rounded-lg p-3 border border-rose-100 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-base">🍎</span>
-                  <span className="text-xs font-bold text-stone-800">iPhone (Relógio da Apple)</span>
-                </div>
-                <ol className="text-[10.5px] text-stone-600 space-y-1 list-decimal list-inside pl-1">
-                  <li>Abra o app <strong>Relógio</strong> do iPhone</li>
-                  <li>Toque em <strong>Alarme</strong> → <strong>+</strong></li>
-                  <li>Defina o horário e ative <strong>Repetir</strong> nos dias úteis</li>
-                  <li>No campo <strong>Rótulo</strong> escreva: "Bater Ponto – Entrada"</li>
-                  <li>Escolha um toque de <strong>sino/alarme</strong> audível</li>
-                </ol>
-              </div>
-
-              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                <span className="text-amber-600 text-sm mt-0.5">💡</span>
-                <p className="text-[10.5px] text-amber-900 leading-relaxed">
-                  <strong>Dica:</strong> Use o app nativo para tocar o alarme sonoro e abra o Compensador de Horas ao ouvir o alarme para bater o ponto com o botão <strong>"Agora"</strong>.
-                </p>
-              </div>
-            </div>
-          </div>
 
 
           {/* Actions */}

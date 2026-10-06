@@ -1,5 +1,4 @@
-import { BellOff, BellRing, Check, Clock, VolumeX } from 'lucide-react';
-import { stopAlarmLoop } from '../utils/audioAlarm';
+import { BellOff, BellRing, Check, Clock } from 'lucide-react';
 
 export interface ActiveAlarmState {
   id: string;
@@ -29,17 +28,14 @@ export default function AlarmBanner({
   if (!activeAlarm) return null;
 
   const handleDeactivate = () => {
-    stopAlarmLoop();
     onDismiss();
   };
 
   const handleSnooze = () => {
-    stopAlarmLoop();
     onSnooze();
   };
 
   const handlePunch = () => {
-    stopAlarmLoop();
     onPunchCurrent(activeAlarm.id);
     onDismiss();
   };
@@ -104,7 +100,6 @@ export default function AlarmBanner({
               id="alarm-deactivate-all-btn"
               type="button"
               onClick={() => {
-                stopAlarmLoop();
                 onDeactivateAllAlarms();
               }}
               title="Desativar todos os alarmes de hoje"

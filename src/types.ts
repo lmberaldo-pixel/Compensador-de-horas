@@ -12,6 +12,7 @@ export interface WorkConfig {
   soundEnabled: boolean;
   notificationsEnabled: boolean;
   keepScreenOn?: boolean;
+  useCustomSound?: boolean; // Use uploaded ringtone instead of the synthesized beep
 }
 
 export interface DayMarks {

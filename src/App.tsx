@@ -267,7 +267,7 @@ export default function App() {
           setActiveAlarm(alarmPayload);
 
           if (config.soundEnabled) {
-            startAlarmLoop(getSavedVolume());
+            startAlarmLoop(getSavedVolume(), config.useCustomSound || false);
           }
 
           if (config.notificationsEnabled) {
@@ -312,7 +312,7 @@ export default function App() {
     };
     setActiveAlarm(payload);
     if (config.soundEnabled) {
-      startAlarmLoop(getSavedVolume());
+      startAlarmLoop(getSavedVolume(), config.useCustomSound || false);
     }
   };
 
@@ -328,7 +328,7 @@ export default function App() {
     // Snooze for N minutes
     setTimeout(() => {
       if (config.soundEnabled) {
-        startAlarmLoop(getSavedVolume());
+        startAlarmLoop(getSavedVolume(), config.useCustomSound || false);
       }
       setActiveAlarm({
         id: 'snooze',
@@ -349,7 +349,58 @@ export default function App() {
     } else if (milestoneId === 'lunchEnd') {
       handleMarkChange('lunchEndTime', nowTime);
     } else if (milestoneId === 'finalExit') {
-      handleMarkChange('actualEndTime', nowTime);
+      // Build updated marks inline (state update is async, so we compute ahead)
+      const updatedMarks: DayMarks = { ...marks, actualEndTime: nowTime };
+      setMarks(updatedMarks);
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const alreadySaved = history.some(
+        (record) => record.date === todayStr && record.type === 'workday'
+      );
+
+      if (alreadySaved) {
+        showToast('Saída registrada! Dia já estava salvo no banco de horas.');
+        return;
+      }
+
+      // Recalculate with the new actualEndTime so the saved record is accurate
+      const updatedResult = calculateCompensation(updatedMarks, config, currentMinutesNow);
+      const balance = updatedResult.dailyBalanceMinutes;
+
+      const newRecord: HistoryRecord = {
+        id: `record_${Date.now()}`,
+        date: todayStr,
+        type: 'workday',
+        startTime: updatedMarks.startTime,
+        lunchStartTime: updatedMarks.lunchStartTime,
+        lunchEndTime: updatedMarks.lunchEndTime,
+        actualEndTime: nowTime,
+        calculatedEndTime: updatedResult.calculatedEndTime,
+        totalDelayMinutes: updatedResult.totalExtraCompensationMinutes,
+        balanceMinutes: balance,
+        notes:
+          balance > 0
+            ? `Saldo positivo (+${balance} min)`
+            : balance < 0
+            ? `Saldo devedor (${balance} min)`
+            : nowTime && updatedResult.totalMinutesWorked > config.workHours * 60 + config.workMinutes
+            ? 'Tolerância de 5 min na saída (0 min para o banco)'
+            : 'Jornada cumprida exatamente',
+      };
+
+      setHistory((prev) => [newRecord, ...prev]);
+
+      // Brief pause so the user sees the registered time before the screen clears
+      setTimeout(() => {
+        setMarks({
+          startTime: '',
+          lunchStartTime: '',
+          lunchEndTime: '',
+          actualEndTime: '',
+        });
+      }, 2000);
+
+      showToast('✅ Último ponto batido! Dia salvo no histórico e tela limpa para amanhã.');
     }
   };
 

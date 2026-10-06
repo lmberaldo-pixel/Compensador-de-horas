@@ -2,11 +2,17 @@
  * Audio synthesizer for work alarms using the Web Audio API.
  * Synthesizes an authentic, crisp electronic digital alarm "bip bip" (beep beep)
  * with zero external dependencies, working 100% offline and reliably.
+ * Also supports a user-uploaded custom ringtone via the HTML Audio API.
  */
+
+const CUSTOM_SOUND_KEY = 'compensador_custom_sound';
 
 let audioCtx: AudioContext | null = null;
 let activeLoopInterval: number | null = null;
 let activeGainNodes: GainNode[] = [];
+
+// Custom sound (user-uploaded ringtone)
+let customAudioEl: HTMLAudioElement | null = null;
 
 function getAudioContext(): AudioContext {
   if (!audioCtx) {
@@ -99,14 +105,27 @@ export const playChime = (volume: number = 0.85) => playBeepBeep(volume, true);
 /**
  * Starts continuous alarm loop: plays the digital "bip-bip ... bip-bip"
  * every 1.6 seconds until dismissed or snoozed.
+ * If useCustomSound is true and the user uploaded a ringtone, it plays that instead.
  */
-export function startAlarmLoop(volume: number = 0.85): void {
+export function startAlarmLoop(volume: number = 0.85, useCustomSound: boolean = false): void {
   stopAlarmLoop();
 
-  // Play immediately
-  playBeepBeep(volume, true);
+  // If user has a custom ringtone and it's enabled, use it
+  if (useCustomSound) {
+    const dataUrl = localStorage.getItem(CUSTOM_SOUND_KEY);
+    if (dataUrl) {
+      customAudioEl = new Audio(dataUrl);
+      customAudioEl.loop = true;
+      customAudioEl.volume = Math.min(1, Math.max(0.05, volume));
+      customAudioEl.play().catch((err) =>
+        console.error('Failed to play custom alarm sound:', err)
+      );
+      return;
+    }
+  }
 
-  // Repeat every 1600ms
+  // Fallback: synthesized beep
+  playBeepBeep(volume, true);
   activeLoopInterval = window.setInterval(() => {
     playBeepBeep(volume, true);
   }, 1600);
@@ -116,6 +135,13 @@ export function startAlarmLoop(volume: number = 0.85): void {
  * Stops any playing alarm loop immediately and cuts off all active sound
  */
 export function stopAlarmLoop(): void {
+  // Stop custom audio if playing
+  if (customAudioEl) {
+    customAudioEl.pause();
+    customAudioEl.currentTime = 0;
+    customAudioEl = null;
+  }
+
   if (activeLoopInterval !== null) {
     window.clearInterval(activeLoopInterval);
     activeLoopInterval = null;
@@ -134,6 +160,64 @@ export function stopAlarmLoop(): void {
     });
     activeGainNodes = [];
   }
+}
+
+// ─── Custom ringtone helpers ──────────────────────────────────────────────────
+
+/**
+ * Saves the user-uploaded ringtone as a base64 data URL in localStorage.
+ * Typical phone ringtones are 0.5–1 MB, well within the 5 MB localStorage limit.
+ */
+export function saveCustomAlarmSound(dataUrl: string): void {
+  try {
+    localStorage.setItem(CUSTOM_SOUND_KEY, dataUrl);
+  } catch (e) {
+    console.warn('Failed to save custom sound (file may be too large):', e);
+    throw e; // Re-throw so caller can show an error to the user
+  }
+}
+
+/** Returns true if the user has uploaded a custom ringtone. */
+export function hasCustomAlarmSound(): boolean {
+  return !!localStorage.getItem(CUSTOM_SOUND_KEY);
+}
+
+/** Returns the stored ringtone filename label (stored separately) or null. */
+export function getCustomAlarmSoundName(): string | null {
+  return localStorage.getItem(CUSTOM_SOUND_KEY + '_name');
+}
+
+/** Saves a human-readable name for the custom sound. */
+export function saveCustomAlarmSoundName(name: string): void {
+  localStorage.setItem(CUSTOM_SOUND_KEY + '_name', name);
+}
+
+/** Removes the custom ringtone from localStorage. */
+export function clearCustomAlarmSound(): void {
+  localStorage.removeItem(CUSTOM_SOUND_KEY);
+  localStorage.removeItem(CUSTOM_SOUND_KEY + '_name');
+  if (customAudioEl) {
+    customAudioEl.pause();
+    customAudioEl = null;
+  }
+}
+
+/**
+ * Plays the custom ringtone once for preview purposes.
+ * Returns a stop function to cancel it.
+ */
+export function previewCustomAlarmSound(): () => void {
+  const dataUrl = localStorage.getItem(CUSTOM_SOUND_KEY);
+  if (!dataUrl) return () => {};
+
+  const audio = new Audio(dataUrl);
+  audio.volume = 1;
+  audio.play().catch(console.error);
+
+  return () => {
+    audio.pause();
+    audio.currentTime = 0;
+  };
 }
 
 /**
