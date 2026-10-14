@@ -606,7 +606,10 @@ export default function App() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         config={config}
-        onSaveConfig={setConfig}
+        onSaveConfig={(newConfig) => {
+          setConfig(newConfig);
+          showToast('Configurações salvas com sucesso!');
+        }}
       />
 
       <HistoryModal

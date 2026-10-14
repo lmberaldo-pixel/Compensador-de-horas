@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, BellOff, Check, Clock, Save, X, Monitor, Music, Play, Trash2 } from 'lucide-react';
 import { WorkConfig } from '../types';
+import { timeToMinutes } from '../utils/timeCalculations';
 import {
   saveCustomAlarmSound,
   saveCustomAlarmSoundName,
@@ -111,10 +112,14 @@ export default function SettingsModal({
     const endM = timeToMinutes(newEnd);
     let h = formData.workHours;
     let m = formData.workMinutes;
-    if (!isNaN(startM) && !isNaN(endM) && endM > startM + newLunch) {
-      const totalWorkM = endM - startM - newLunch;
-      h = Math.floor(totalWorkM / 60);
-      m = totalWorkM % 60;
+    if (!isNaN(startM) && !isNaN(endM)) {
+      let diff = endM - startM;
+      if (diff < 0) diff += 1440; // in case of shifts that span midnight
+      if (diff > newLunch) {
+        const totalWorkM = diff - newLunch;
+        h = Math.floor(totalWorkM / 60);
+        m = totalWorkM % 60;
+      }
     }
     setFormData((prev) => ({
       ...prev,
