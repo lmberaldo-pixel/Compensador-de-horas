@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell, BellOff, Check, Clock, Save, X, Monitor, Music, Play, Trash2, Smartphone } from 'lucide-react';
+import { Bell, BellOff, Check, Clock, Save, X, Music, Play, Trash2, Smartphone } from 'lucide-react';
 import { WorkConfig } from '../types';
 import { timeToMinutes } from '../utils/timeCalculations';
 import {
@@ -580,31 +580,6 @@ export default function SettingsModal({
                   >
                     {testCountdown !== null ? `Toque em ${testCountdown}s (bloqueie agora!)` : 'Testar em 5s (Bloqueie a tela)'}
                   </button>
-                </div>
-              </div>
-
-              {/* Manter Tela Ligada */}
-              <div className="flex items-center justify-between bg-stone-50 p-3 rounded-xl border border-stone-200/80 gap-3">
-                <div className="flex-1">
-                  <div className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
-                    <Monitor className="w-3.5 h-3.5 text-blue-600" />
-                    Manter Tela Ligada (Wake Lock)
-                  </div>
-                  <div className="text-[11px] text-stone-500 mt-0.5">
-                    Impede o celular ou PC de bloquear a tela sozinho. <span className="font-semibold text-blue-700">Recomendado para o alarme tocar 100% das vezes sem erro no navegador.</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    id="wake-lock-enabled-checkbox"
-                    type="checkbox"
-                    checked={formData.keepScreenOn || false}
-                    onChange={(e) =>
-                      setFormData({ ...formData, keepScreenOn: e.target.checked })
-                    }
-                    className="w-4 h-4 rounded text-stone-900 focus:ring-stone-900 accent-blue-600 cursor-pointer"
-                  />
                 </div>
               </div>
 
