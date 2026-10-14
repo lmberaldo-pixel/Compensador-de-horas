@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Bell, BellOff, Check, Clock, Save, X, Monitor, Music, Play, Trash2 } from 'lucide-react';
 import { WorkConfig } from '../types';
 import {
@@ -25,6 +25,15 @@ export default function SettingsModal({
   onSaveConfig,
 }: SettingsModalProps) {
   const [formData, setFormData] = useState<WorkConfig>(config);
+
+  // Sync local formData with latest config every time the modal is opened.
+  // Without this, the useState initializer only runs once on mount, so
+  // re-opening the modal after a save would restore stale values.
+  useEffect(() => {
+    if (isOpen) {
+      setFormData(config);
+    }
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   const [notificationStatus, setNotificationStatus] = useState<string>(
     typeof window !== 'undefined' && 'Notification' in window
       ? Notification.permission
