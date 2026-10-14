@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bell, BellOff, Check, Clock, Save, X, Monitor, Music, Play, Trash2 } from 'lucide-react';
+import { Bell, BellOff, Check, Clock, Save, X, Monitor, Music, Play, Trash2, Smartphone } from 'lucide-react';
 import { WorkConfig } from '../types';
 import { timeToMinutes } from '../utils/timeCalculations';
 import {
@@ -10,6 +10,9 @@ import {
   clearCustomAlarmSound,
   previewCustomAlarmSound,
   requestNotificationPermission,
+  startBackgroundKeepAlive,
+  startAlarmLoop,
+  sendDesktopNotification,
 } from '../utils/audioAlarm';
 
 interface SettingsModalProps {
@@ -50,6 +53,31 @@ export default function SettingsModal({
   const [isPreviewing, setIsPreviewing] = useState(false);
   const stopPreviewRef = useRef<(() => void) | null>(null);
   const soundInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Test alarm on locked screen state
+  const [testCountdown, setTestCountdown] = useState<number | null>(null);
+
+  const handleTestLockedScreenAlarm = () => {
+    if (testCountdown !== null) return;
+    startBackgroundKeepAlive();
+    setTestCountdown(5);
+
+    let secondsLeft = 5;
+    const interval = setInterval(() => {
+      secondsLeft -= 1;
+      if (secondsLeft > 0) {
+        setTestCountdown(secondsLeft);
+      } else {
+        clearInterval(interval);
+        setTestCountdown(null);
+        startAlarmLoop(1, formData.useCustomSound || false, 'Teste com Tela Bloqueada');
+        sendDesktopNotification(
+          '⏰ Teste: Alarme com Tela Bloqueada!',
+          'O alarme disparou com sucesso mesmo com a tela do celular apagada!'
+        );
+      }
+    }, 1000);
+  };
 
   const handleSoundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -510,6 +538,49 @@ export default function SettingsModal({
                 {soundUploadError && (
                   <p className="text-[11px] text-rose-600 font-medium">{soundUploadError}</p>
                 )}
+              </div>
+
+              {/* Modo Despertador (Tocar com Tela Apagada/Bloqueada) */}
+              <div className="bg-amber-50/80 p-3.5 rounded-xl border border-amber-200/90 space-y-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                      <Smartphone className="w-3.5 h-3.5 text-amber-600" />
+                      Modo Despertador (Tela Apagada / Bloqueada)
+                      <span className="text-[10px] font-bold text-amber-800 bg-amber-200/90 px-1.5 py-0.5 rounded">
+                        Novo
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-amber-900/80 mt-0.5">
+                      Mantém canal de áudio contínuo em segundo plano. Permite que o alarme toque alto no alto-falante mesmo se você apertar o botão de desligar/bloquear a tela do celular.
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="background-alarm-mode-checkbox"
+                      type="checkbox"
+                      checked={formData.backgroundAlarmMode !== false}
+                      onChange={(e) =>
+                        setFormData({ ...formData, backgroundAlarmMode: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded text-stone-900 focus:ring-stone-900 accent-amber-600 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-amber-200/70 flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-amber-900 font-semibold">
+                    Quer testar agora no seu celular?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleTestLockedScreenAlarm}
+                    className="text-xs font-bold px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg transition-colors shadow-2xs whitespace-nowrap"
+                  >
+                    {testCountdown !== null ? `Toque em ${testCountdown}s (bloqueie agora!)` : 'Testar em 5s (Bloqueie a tela)'}
+                  </button>
+                </div>
               </div>
 
               {/* Manter Tela Ligada */}

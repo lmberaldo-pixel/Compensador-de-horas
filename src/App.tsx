@@ -11,6 +11,9 @@ import {
   stopAlarmLoop,
   sendDesktopNotification,
   requestNotificationPermission,
+  startBackgroundKeepAlive,
+  stopBackgroundKeepAlive,
+  setDismissAlarmHandler,
 } from './utils/audioAlarm';
 import {
   registerServiceWorker,
@@ -38,6 +41,7 @@ const DEFAULT_CONFIG: WorkConfig = {
   soundEnabled: true,
   notificationsEnabled: true,
   keepScreenOn: false,
+  backgroundAlarmMode: true, // Enables silent background audio so alarms ring with screen locked/off
 };
 
 const DEFAULT_MARKS: DayMarks = {
@@ -239,6 +243,35 @@ export default function App() {
     return history.reduce((acc, item) => acc + (item.balanceMinutes || 0), 0);
   }, [history]);
 
+  // Set up dismiss callback for lock-screen MediaSession controls
+  useEffect(() => {
+    setDismissAlarmHandler(() => {
+      stopAlarmLoop();
+      setActiveAlarm(null);
+    });
+    return () => setDismissAlarmHandler(null);
+  }, []);
+
+  // Background Audio Keep-Alive ("Modo Despertador")
+  // Keeps a silent background audio loop active with MediaSession so mobile OS
+  // never suspends the app when the screen is turned off/locked.
+  useEffect(() => {
+    if (config.backgroundAlarmMode !== false && config.alarmsEnabled !== false) {
+      const handleUserGesture = () => {
+        startBackgroundKeepAlive();
+      };
+      startBackgroundKeepAlive();
+      window.addEventListener('click', handleUserGesture, { once: true });
+      window.addEventListener('touchstart', handleUserGesture, { once: true });
+      return () => {
+        window.removeEventListener('click', handleUserGesture);
+        window.removeEventListener('touchstart', handleUserGesture);
+      };
+    } else {
+      stopBackgroundKeepAlive();
+    }
+  }, [config.backgroundAlarmMode, config.alarmsEnabled]);
+
   // Alarm monitoring routine: checks if current time matches any alarm trigger
   useEffect(() => {
     if (config.alarmsEnabled === false) return;
@@ -249,8 +282,16 @@ export default function App() {
       if (!alarm.alarmTriggerTime || alarm.alarmTriggerTime === '--:--') return;
 
       const triggerKey = `${alarm.id}_${alarm.alarmTriggerTime}`;
-      // Check if current minute exactly equals the alarm trigger time
-      if (currentTimeStr === alarm.alarmTriggerTime) {
+      const triggerMins = timeToMinutes(alarm.alarmTriggerTime);
+
+      // Check if current minute matches OR if within 2 minutes past trigger (e.g. if device was briefly sleeping while locked)
+      const isDue =
+        currentTimeStr === alarm.alarmTriggerTime ||
+        (!isNaN(triggerMins) &&
+          currentMinutesNow >= triggerMins &&
+          currentMinutesNow <= triggerMins + 2);
+
+      if (isDue) {
         if (!firedAlarms[triggerKey]) {
           // Record as fired to prevent multi-triggering within the same minute
           setFiredAlarms((prev) => ({ ...prev, [triggerKey]: currentTimeStr }));
@@ -267,7 +308,7 @@ export default function App() {
           setActiveAlarm(alarmPayload);
 
           if (config.soundEnabled) {
-            startAlarmLoop(getSavedVolume(), config.useCustomSound || false);
+            startAlarmLoop(getSavedVolume(), config.useCustomSound || false, alarm.title);
           }
 
           if (config.notificationsEnabled) {
@@ -279,7 +320,7 @@ export default function App() {
         }
       }
     });
-  }, [currentTimeStr, result.alarms, config, firedAlarms]);
+  }, [currentTimeStr, currentMinutesNow, result.alarms, config, firedAlarms]);
 
   // Handlers
   const handleMarkChange = (field: keyof DayMarks, value: string) => {
@@ -312,7 +353,7 @@ export default function App() {
     };
     setActiveAlarm(payload);
     if (config.soundEnabled) {
-      startAlarmLoop(getSavedVolume(), config.useCustomSound || false);
+      startAlarmLoop(getSavedVolume(), config.useCustomSound || false, title);
     }
   };
 
@@ -328,7 +369,7 @@ export default function App() {
     // Snooze for N minutes
     setTimeout(() => {
       if (config.soundEnabled) {
-        startAlarmLoop(getSavedVolume(), config.useCustomSound || false);
+        startAlarmLoop(getSavedVolume(), config.useCustomSound || false, 'Lembrete Adiado');
       }
       setActiveAlarm({
         id: 'snooze',

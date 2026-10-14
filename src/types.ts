@@ -13,6 +13,7 @@ export interface WorkConfig {
   notificationsEnabled: boolean;
   keepScreenOn?: boolean;
   useCustomSound?: boolean; // Use uploaded ringtone instead of the synthesized beep
+  backgroundAlarmMode?: boolean; // Keep audio session active so alarm rings even with locked/off screen
 }
 
 export interface DayMarks {
