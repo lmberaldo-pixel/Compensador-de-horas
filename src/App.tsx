@@ -279,7 +279,15 @@ export default function App() {
 
     result.alarms.forEach((alarm) => {
       if (alarm.enabled === false) return;
+      // Do not trigger alarms that have already passed
+      if (alarm.status === 'passed') return;
       if (!alarm.alarmTriggerTime || alarm.alarmTriggerTime === '--:--') return;
+
+      // Do not trigger alarms for milestones that have already been punched/recorded
+      if (alarm.id === 'entry' && marks.startTime) return;
+      if (alarm.id === 'lunchStart' && marks.lunchStartTime) return;
+      if (alarm.id === 'lunchEnd' && marks.lunchEndTime) return;
+      if (alarm.id === 'finalExit' && marks.actualEndTime) return;
 
       const triggerKey = `${alarm.id}_${alarm.alarmTriggerTime}`;
       const triggerMins = timeToMinutes(alarm.alarmTriggerTime);
@@ -320,14 +328,47 @@ export default function App() {
         }
       }
     });
-  }, [currentTimeStr, currentMinutesNow, result.alarms, config, firedAlarms]);
+  }, [currentTimeStr, currentMinutesNow, result.alarms, config, firedAlarms, marks]);
 
   // Handlers
   const handleMarkChange = (field: keyof DayMarks, value: string) => {
     setMarks((prev) => ({ ...prev, [field]: value }));
+
+    const fieldToAlarmId: Record<keyof DayMarks, string> = {
+      startTime: 'entry',
+      lunchStartTime: 'lunchStart',
+      lunchEndTime: 'lunchEnd',
+      actualEndTime: 'finalExit',
+    };
+
+    if (value) {
+      // Mark every existing alarm for this milestone as fired so it cannot
+      // re-trigger after the mark changes (recalculation produces a new triggerKey).
+      const alarmId = fieldToAlarmId[field];
+      setFiredAlarms((prev) => {
+        const next = { ...prev };
+        result.alarms
+          .filter((a) => a.id === alarmId && a.alarmTriggerTime && a.alarmTriggerTime !== '--:--')
+          .forEach((a) => {
+            next[`${a.id}_${a.alarmTriggerTime}`] = currentTimeStr;
+          });
+        return next;
+      });
+
+      // If an alarm is currently ringing for this milestone, stop it
+      if (activeAlarm) {
+        if (activeAlarm.id === alarmId || activeAlarm.id === 'snooze') {
+          stopAlarmLoop();
+          setActiveAlarm(null);
+        }
+      }
+    }
   };
 
   const handleClearMarks = () => {
+    stopAlarmLoop();
+    setActiveAlarm(null);
+    setFiredAlarms({});
     setMarks({
       startTime: '',
       lunchStartTime: '',
@@ -382,6 +423,8 @@ export default function App() {
   };
 
   const handlePunchMilestone = (milestoneId: string) => {
+    stopAlarmLoop();
+    setActiveAlarm(null);
     const nowTime = getCurrentTime();
     if (milestoneId === 'entry') {
       handleMarkChange('startTime', nowTime);
@@ -561,8 +604,6 @@ export default function App() {
         timeBankMinutes={totalTimeBankMinutes}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenHistory={() => setIsHistoryOpen(true)}
-        onToggleSound={handleToggleSound}
-        onChangeVolume={handleChangeVolume}
         onToggleAlarms={handleToggleMasterAlarms}
       />
 

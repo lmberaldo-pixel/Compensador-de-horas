@@ -209,13 +209,13 @@ export function calculateCompensation(
   };
 
   // Milestone 1: Entrada
-  const entryTargetMins = !isNaN(startMins) ? startMins : stdStartMins;
+  const entryScheduledTargetMins = stdStartMins;
   alarms.push({
     id: 'entry',
     title: 'Entrada no Trabalho',
-    scheduledTargetTime: minutesToTime(entryTargetMins),
-    alarmTriggerTime: minutesToTime(entryTargetMins - advance),
-    status: !isNaN(startMins) ? 'passed' : currentMinutesNow >= entryTargetMins ? 'passed' : 'upcoming',
+    scheduledTargetTime: minutesToTime(entryScheduledTargetMins),
+    alarmTriggerTime: minutesToTime(entryScheduledTargetMins - advance),
+    status: !isNaN(startMins) ? 'passed' : currentMinutesNow >= entryScheduledTargetMins ? 'passed' : 'upcoming',
     enabled: isMilestoneEnabled('entry'),
   });
 
@@ -227,8 +227,8 @@ export function calculateCompensation(
   alarms.push({
     id: 'lunchStart',
     title: 'Saída para Almoço',
-    scheduledTargetTime: !isNaN(lunchStartMins) ? marks.lunchStartTime : minutesToTime(lunchStartTargetMins),
-    alarmTriggerTime: minutesToTime((!isNaN(lunchStartMins) ? lunchStartMins : lunchStartTargetMins) - advance),
+    scheduledTargetTime: minutesToTime(lunchStartTargetMins),
+    alarmTriggerTime: minutesToTime(lunchStartTargetMins - advance),
     status: !isNaN(lunchStartMins) ? 'passed' : currentMinutesNow >= lunchStartTargetMins ? 'passed' : 'upcoming',
     enabled: isMilestoneEnabled('lunchStart'),
   });
@@ -241,11 +241,7 @@ export function calculateCompensation(
   alarms.push({
     id: 'lunchEnd',
     title: 'Retorno do Almoço',
-    scheduledTargetTime: !isNaN(lunchEndMins)
-      ? marks.lunchEndTime
-      : !isNaN(lunchEndExpectedMins)
-        ? minutesToTime(lunchEndExpectedMins)
-        : '--:--',
+    scheduledTargetTime: !isNaN(lunchEndExpectedMins) ? minutesToTime(lunchEndExpectedMins) : '--:--',
     alarmTriggerTime: !isNaN(lunchEndExpectedMins) ? minutesToTime(lunchEndExpectedMins - advance) : '--:--',
     status: !isNaN(lunchEndMins)
       ? 'passed'

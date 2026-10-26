@@ -67,7 +67,7 @@ export async function syncUpcomingAlarmsWithSW(
   const scheduled: ScheduledBackgroundAlarm[] = [];
 
   alarms.forEach((alarm) => {
-    if (!alarm.enabled || !alarm.alarmTriggerTime || alarm.alarmTriggerTime === '--:--') return;
+    if (!alarm.enabled || alarm.status === 'passed' || !alarm.alarmTriggerTime || alarm.alarmTriggerTime === '--:--') return;
 
     const triggerMs = getTimestampForTimeToday(alarm.alarmTriggerTime);
     // Only schedule alarms that are in the future (or within the next minute)
