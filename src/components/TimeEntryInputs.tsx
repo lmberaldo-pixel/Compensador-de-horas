@@ -263,7 +263,9 @@ export default function TimeEntryInputs({
 
             {marks.startTime ? (
               <div className="flex justify-between font-medium">
-                <span className="text-stone-500">Atraso / Delta:</span>
+                <span className="text-stone-500">
+                  {result.entryDelayMinutes < 0 ? 'Adiantamento:' : 'Atraso / Delta:'}
+                </span>
                 <span
                   className={`font-mono font-bold ${
                     result.entryDelayMinutes > 0

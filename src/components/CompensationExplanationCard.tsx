@@ -24,11 +24,39 @@ export default function CompensationExplanationCard({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
         <div className="bg-white p-3.5 rounded-xl border border-stone-200/70 space-y-1">
           <div className="font-bold text-stone-800 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
-            1. Atraso na Entrada
+            <span
+              className={`w-2 h-2 rounded-full ${
+                config.compensationMode === 'before_and_after'
+                  ? 'bg-emerald-500'
+                  : 'bg-amber-500'
+              }`}
+            />
+            {config.compensationMode === 'before_and_after'
+              ? '1. Entrada (Antes / Depois)'
+              : config.compensationMode === 'before_only'
+              ? '1. Entrada Antecipada'
+              : '1. Atraso na Entrada'}
           </div>
           <p className="text-stone-500 leading-relaxed">
-            Se a entrada contratual era às <strong className="text-stone-700 font-mono">{config.standardStartTime}</strong> e o ponto for batido após esse horário, a diferença em minutos é somada diretamente à hora de saída final.
+            {config.compensationMode === 'before_and_after' ? (
+              <>
+                Entrar antes das{' '}
+                <strong className="text-stone-700 font-mono">{config.standardStartTime}</strong>{' '}
+                antecipa sua saída à tarde; se atrasar, o tempo é somado ao horário de encerramento.
+              </>
+            ) : config.compensationMode === 'before_only' ? (
+              <>
+                Entrar antes das{' '}
+                <strong className="text-stone-700 font-mono">{config.standardStartTime}</strong>{' '}
+                antecipa sua saída à tarde proporcionalmente. Atrasos não alteram a saída padrão.
+              </>
+            ) : (
+              <>
+                Se a entrada contratual era às{' '}
+                <strong className="text-stone-700 font-mono">{config.standardStartTime}</strong>{' '}
+                e o ponto for batido após esse horário, a diferença em minutos é somada diretamente à hora de saída final. Horas antes do início são desconsideradas.
+              </>
+            )}
           </p>
         </div>
 

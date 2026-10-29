@@ -291,6 +291,104 @@ export default function SettingsModal({
             </div>
           </div>
 
+          {/* Regra de Compensação da Jornada */}
+          <div className="pt-2 border-t border-stone-100">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-stone-600">
+                Regra de Compensação de Horas
+              </label>
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-900 px-2 py-0.5 rounded">
+                Configurável
+              </span>
+            </div>
+            <p className="text-[11px] text-stone-500 mb-3 leading-relaxed">
+              Escolha quando as variações de entrada e atrasos devem compensar o horário de saída:
+            </p>
+
+            <div className="space-y-2">
+              {/* Opção 1: Depois do expediente (atual) */}
+              <label
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  (formData.compensationMode || 'after_only') === 'after_only'
+                    ? 'bg-amber-50/60 border-amber-300 ring-2 ring-amber-200/60 shadow-2xs'
+                    : 'bg-white border-stone-200/90 hover:bg-stone-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="compensationMode"
+                  value="after_only"
+                  checked={(formData.compensationMode || 'after_only') === 'after_only'}
+                  onChange={() => setFormData({ ...formData, compensationMode: 'after_only' })}
+                  className="mt-0.5 w-4 h-4 text-stone-900 focus:ring-stone-900 accent-amber-600 cursor-pointer shrink-0"
+                />
+                <div className="flex-1">
+                  <div className="text-xs font-bold text-stone-900">
+                    Depois do expediente (Padrão)
+                  </div>
+                  <div className="text-[11px] text-stone-500 leading-relaxed mt-0.5">
+                    Compensa apenas atrasos na saída à tarde (prorroga a saída). Entradas antes das {formData.standardStartTime} são desconsideradas.
+                  </div>
+                </div>
+              </label>
+
+              {/* Opção 2: Antes e depois do expediente */}
+              <label
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  formData.compensationMode === 'before_and_after'
+                    ? 'bg-amber-50/60 border-amber-300 ring-2 ring-amber-200/60 shadow-2xs'
+                    : 'bg-white border-stone-200/90 hover:bg-stone-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="compensationMode"
+                  value="before_and_after"
+                  checked={formData.compensationMode === 'before_and_after'}
+                  onChange={() => setFormData({ ...formData, compensationMode: 'before_and_after' })}
+                  className="mt-0.5 w-4 h-4 text-stone-900 focus:ring-stone-900 accent-amber-600 cursor-pointer shrink-0"
+                />
+                <div className="flex-1">
+                  <div className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                    <span>Antes e depois do expediente</span>
+                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded">
+                      Flexível
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-stone-500 leading-relaxed mt-0.5">
+                    Compensa variações nos dois sentidos: chegar antes das {formData.standardStartTime} antecipa sua saída à tarde; chegar atrasado prorroga a saída.
+                  </div>
+                </div>
+              </label>
+
+              {/* Opção 3: Apenas antes do expediente */}
+              <label
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  formData.compensationMode === 'before_only'
+                    ? 'bg-amber-50/60 border-amber-300 ring-2 ring-amber-200/60 shadow-2xs'
+                    : 'bg-white border-stone-200/90 hover:bg-stone-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="compensationMode"
+                  value="before_only"
+                  checked={formData.compensationMode === 'before_only'}
+                  onChange={() => setFormData({ ...formData, compensationMode: 'before_only' })}
+                  className="mt-0.5 w-4 h-4 text-stone-900 focus:ring-stone-900 accent-amber-600 cursor-pointer shrink-0"
+                />
+                <div className="flex-1">
+                  <div className="text-xs font-bold text-stone-900">
+                    Apenas antes do expediente
+                  </div>
+                  <div className="text-[11px] text-stone-500 leading-relaxed mt-0.5">
+                    Compensa apenas adiantamentos (chegar mais cedo antecipa a saída). Atrasos de entrada não estendem o fim do expediente.
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
           {/* Configuração dos Alarmes */}
           <div className="pt-2 border-t border-stone-100">
             <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-3">

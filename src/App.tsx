@@ -42,6 +42,7 @@ const DEFAULT_CONFIG: WorkConfig = {
   notificationsEnabled: true,
   keepScreenOn: false,
   backgroundAlarmMode: true, // Enables silent background audio so alarms ring with screen locked/off
+  compensationMode: 'after_only', // Default compensation mode: after shift (atrasos na saída à tarde)
 };
 
 const DEFAULT_MARKS: DayMarks = {

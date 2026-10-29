@@ -14,7 +14,10 @@ export interface WorkConfig {
   keepScreenOn?: boolean;
   useCustomSound?: boolean; // Use uploaded ringtone instead of the synthesized beep
   backgroundAlarmMode?: boolean; // Keep audio session active so alarm rings even with locked/off screen
+  compensationMode?: 'after_only' | 'before_and_after' | 'before_only'; // When compensation occurs
 }
+
+export type CompensationMode = 'after_only' | 'before_and_after' | 'before_only';
 
 export interface DayMarks {
   startTime: string; // "08:15"

@@ -81,13 +81,27 @@ export function calculateCompensation(
   const actualEndMins = timeToMinutes(marks.actualEndTime);
 
   // 1. Effective start time and entry delay calculation
-  // Hours worked before standardStartTime are ignored (never counted towards time bank or early exit).
+  const compensationMode = config.compensationMode || 'after_only';
   let entryDelayMinutes = 0;
   let effectiveStartMins = NaN;
 
   if (!isNaN(startMins) && !isNaN(stdStartMins)) {
-    entryDelayMinutes = Math.max(0, startMins - stdStartMins);
-    effectiveStartMins = Math.max(startMins, stdStartMins);
+    if (compensationMode === 'before_and_after') {
+      // Compensa tanto antes quanto depois:
+      // se entrou antes (startMins < stdStartMins), entryDelayMinutes é negativo (adiantado)
+      // se atrasou (startMins > stdStartMins), entryDelayMinutes é positivo (atraso)
+      entryDelayMinutes = startMins - stdStartMins;
+      effectiveStartMins = startMins;
+    } else if (compensationMode === 'before_only') {
+      // Compensa apenas adiantamentos antes do expediente configurado:
+      entryDelayMinutes = Math.min(0, startMins - stdStartMins);
+      effectiveStartMins = Math.min(startMins, stdStartMins);
+    } else {
+      // 'after_only' (Padrão): apenas compensa depois do expediente à tarde por atrasos.
+      // Horas trabalhadas antes do standardStartTime são desconsideradas.
+      entryDelayMinutes = Math.max(0, startMins - stdStartMins);
+      effectiveStartMins = Math.max(startMins, stdStartMins);
+    }
   } else if (!isNaN(startMins)) {
     effectiveStartMins = startMins;
   }
@@ -220,10 +234,9 @@ export function calculateCompensation(
   });
 
   // Milestone 2: Saída para Almoço
-  let lunchStartTargetMins = stdStartMins + (4 * 60); // default 4 hours after start
-  if (!isNaN(startMins)) {
-    lunchStartTargetMins = startMins + (4 * 60);
-  }
+  let lunchStartTargetMins = !isNaN(effectiveStartMins)
+    ? effectiveStartMins + (4 * 60)
+    : (!isNaN(stdStartMins) ? stdStartMins + (4 * 60) : 12 * 60);
   alarms.push({
     id: 'lunchStart',
     title: 'Saída para Almoço',
